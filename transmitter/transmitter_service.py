@@ -1,15 +1,17 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, File, UploadFile
 from pydantic import BaseModel
 import uvicorn
 
-import json
-from datetime import datetime
+import os
 import sqlite3
+import numpy as np
+import pandas as pd
 
 from mmcontrols import stage_lib
 from mmcontrols import position_lib
 
 stageDevice = 'XY'
+csvPath = '../csv/'
 
 #Access row columns by name
 def dict_factory(cursor, row):
@@ -88,7 +90,38 @@ async def updateFilenameLastPos(seriesId: int, fileName: str):
         'stageX': entry['StageX'],
         'stageY': entry['StageY']
     }
-    return returnSeries
+    return returnSeries 
+
+@app.post("/sequence/post-sequence-file", status_code=200, tags=["sequence"])
+async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
+    contents = await file.read()
+    contents = contents.decode(errors='ignore').splitlines()
+    fnameArr = file.filename.split('[')
+    title = fnameArr[0].split('_')[0]
+    stageX = fnameArr[1].split('_')[0]
+    stageY = fnameArr[1].split('_')[1].split(']')[0]
+
+    npArr = []
+    npArr.append(['title', title])
+    npArr.append(['x', stageX])
+    npArr.append(['y', stageY])
+
+    for line in range(28, len(contents)-1):
+        lineArr = contents[line].split('\t')
+        npArr.append(lineArr)
+    tpArr = np.transpose(np.array(npArr))
+    df = pd.DataFrame([tpArr[1]], columns=tpArr[0])
+
+    csv = csvPath + title + '.csv'
+    try:
+        header = False
+        if not os.path.isfile(csv):
+            header = True
+        df.to_csv(csv, mode='a', header=header, index=False)
+    except:
+        return False
+
+    return True
 
 #Move the stage to the next position in the series
 @app.post("/sequence/move-stage-sequence", status_code=200, tags=["sequence"])
@@ -192,6 +225,12 @@ async def getSeriesEntries(seriesId: int):
         returnSeries[i] = entry
 
     return returnSeries
+
+@app.get("/series/get-series", status_code=200, tags=['series'])
+async def getSeries(seriesId: int):
+    selectSeries = 'SELECT * FROM Series WHERE Id = (?)'
+    seriesTbl = db.execute(selectSeries, [seriesId]).fetchone()
+    return seriesTbl
 
 @app.get("/series/get-all-series", status_code=200, tags=["series"])
 async def getAllSeries():
