@@ -16,17 +16,43 @@ def rearrange_df(df, nb_frames):
     z_arr = np.array(z_arr)
     return z_arr
 
+def setData(table):
+    for n, row in enumerate(table.data):
+        for m, column in enumerate(table.data[n]):
+            newitem = QtWidgets.QTableWidgetItem(column)
+            table.setItem(n, m, newitem)
+
+    horHeaders = []
+    for n, key in enumerate(table.data[0].keys()):
+        horHeaders.append(key)
+    table.setHorizontalHeaderLabels(horHeaders)
+
+    return table
+
 class Hyperspecter(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.grid = QtWidgets.QGridLayout(self)
         self.title = QtWidgets.QLineEdit(self)
         self.button = QtWidgets.QPushButton('Plot', self)
+        self.table = QtWidgets.QTableWidget(2, 6, self)
         self.browser = QtWebEngineWidgets.QWebEngineView(self)
+
+        self.grid.setColumnStretch(0, 1)
+        self.grid.setColumnStretch(1, 2)
+
+        self.table.data = dh.getAllSeries()['series']
+        self.table = setData(self.table)
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
 
         vlayout = QtWidgets.QVBoxLayout(self)
         vlayout.addWidget(self.button, alignment=QtCore.Qt.AlignHCenter)
         vlayout.addWidget(self.title, alignment=QtCore.Qt.AlignHCenter)
         vlayout.addWidget(self.browser)
+
+        self.grid.addWidget(self.table)
+        self.grid.addWidget(vlayout)
 
         self.button.clicked.connect(self.show_graph)
         self.resize(1000,800)
