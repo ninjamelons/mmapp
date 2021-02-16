@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 #Can aggregate by None, Frequencies, Coordinate Range, Coordinate Range AND Frequencies
-def aggregateAcquistion(title, *, frequencies, coordRange):
+def aggregateAcquistion(title, *, frequencies=None, coordRange=None):
     #Get series dataframe
     df = getSeriesDataframe(title)
     radius = df['x'].max()
@@ -39,11 +39,11 @@ def aggregateAcquistion(title, *, frequencies, coordRange):
 
     df['frequency'] = pd.to_numeric(df['frequency'])
     mask = ((df['frequency'] >= frequency[0]) & (df['frequency'] <= frequency[1]))
-    df = pd.pivot_table(df.loc[mask],values='intensity',index=['x','y'],columns='frequency').reset_index()
+    df = pd.pivot_table(df.loc[mask],values='intensity',index=['x','y'],columns='frequency').reset_index().reset_index(drop=True)
     
     #return dataframe
     return df
 
 def getSeriesDataframe(title):
-    csv = '../csv/{}.csv'.format(title)
+    csv = './csv/{}.csv'.format(title)
     return pd.read_csv(csv, index_col=False)
