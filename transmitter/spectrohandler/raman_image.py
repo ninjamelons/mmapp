@@ -1,5 +1,12 @@
-from PyQt5 import QtCore, QtWidgets, QtWebEngineWidgets
 import plotly.graph_objects as go
+import dash
+import webview
+from threading import Thread
+
+import dash_core_components as dcc
+import dash_bootstrap_components as dbc
+import dash_html_components as html
+
 
 import numpy as np
 import pandas as pd
@@ -16,55 +23,55 @@ def rearrange_df(df, nb_frames):
     z_arr = np.array(z_arr)
     return z_arr
 
-def setData(table):
-    for n, row in enumerate(table.data):
-        for m, column in enumerate(table.data[n]):
-            newitem = QtWidgets.QTableWidgetItem(column)
-            table.setItem(n, m, newitem)
+class Hyperspecter():
+    def __init__(self):
+        self.data = pd.DataFrame.from_dict(dh.getAllSeries()['series'])
+        self.title = 'title'
 
-    horHeaders = []
-    for n, key in enumerate(table.data[0].keys()):
-        horHeaders.append(key)
-    table.setHorizontalHeaderLabels(horHeaders)
+        self.dash = dash.Dash(
+            external_stylesheets=[dbc.themes.BOOTSTRAP]
+        )
+        self.grid_layout()
+    
+    def grid_layout(self):
+        self.dash.layout = html.Div([
+            dbc.Row([dbc.Col(self.seriesTable(), width=4), dbc.Col(self.seriesGraph(), width=8)])
+        ], style={'overflowX': 'hidden'})
 
-    return table
+    def seriesTable(self):
+        self.data['No. Points'] = (self.data['Radius'] * 2 + 1)**2
+        return dbc.Card([
+            dbc.CardHeader([
+                html.H1('Available Series')
+            ]),
+            dbc.CardBody([
+                dbc.Table.from_dataframe(self.data.iloc[:,np.r_[1:4, 8:9, 6:8]],
+                    bordered=True,
+                    responsive=True
+                )
+            ], style={'textAlign': 'center'})
+        ], style={'height': '52rem', 'margin': '2rem 0rem 2rem 2rem'})
 
-class Hyperspecter(QtWidgets.QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.grid = QtWidgets.QGridLayout(self)
-        self.title = QtWidgets.QLineEdit(self)
-        self.button = QtWidgets.QPushButton('Plot', self)
-        self.table = QtWidgets.QTableWidget(2, 6, self)
-        self.browser = QtWebEngineWidgets.QWebEngineView(self)
-
-        self.grid.setColumnStretch(0, 1)
-        self.grid.setColumnStretch(1, 2)
-
-        self.table.data = dh.getAllSeries()['series']
-        self.table = setData(self.table)
-        self.table.resizeColumnsToContents()
-        self.table.resizeRowsToContents()
-
-        vlayout = QtWidgets.QVBoxLayout(self)
-        vlayout.addWidget(self.button, alignment=QtCore.Qt.AlignHCenter)
-        vlayout.addWidget(self.title, alignment=QtCore.Qt.AlignHCenter)
-        vlayout.addWidget(self.browser)
-
-        self.grid.addWidget(self.table)
-        self.grid.addWidget(vlayout)
-
-        self.button.clicked.connect(self.show_graph)
-        self.resize(1000,800)
+    def seriesGraph(self):
+        return dbc.Card([
+            dbc.CardHeader([
+                html.H1('Selected Series')
+            ]),
+            dbc.CardBody([
+                html.H3(self.title, style={'textAlign': 'center'}),
+                dcc.Graph(figure=self.show_graph(), style={'height': '95%'})
+            ])
+        ], style={'height': '52rem', 'margin': '2rem 2rem 2rem 0rem'})
 
     def show_graph(self):
         #Dataframe
-        df = dh.aggregateAcquistion(self.title.text())
+        df = dh.aggregateAcquistion(self.title)
         dims = df['x'].max() * 2 + 1
         xy_shape = (dims, dims)
         nb_frames = df.iloc[:,2:].shape[1]
         max_intensity = df.iloc[:,2:].max(axis=1).max()
         freqs = pd.melt(df.iloc[::xy_shape[0]*xy_shape[1],2:])['frequency'].values
+
         #Multi Index
         df = df.set_index(['x','y'])
         df = df.values.reshape(
@@ -72,6 +79,7 @@ class Hyperspecter(QtWidgets.QWidget):
             len(df.index.levels[1]),
             -1).swapaxes(1,2)
         df = rearrange_df(df, nb_frames)
+
         #Plotly figure
         frames = list()
         for nb in range(nb_frames):
@@ -86,10 +94,11 @@ class Hyperspecter(QtWidgets.QWidget):
                 name=str(freqs[nb]))
             frames.append(frame)
         fig = go.Figure(frames=frames)
+
         #Animation Data
         fig.add_trace(go.Surface(
-            z=freqs.max() * np.ones(xy_shape),
-            surfacecolor=np.flipud(df[40]),
+            z=freqs[0] * np.ones(xy_shape),
+            surfacecolor=np.flipud(df[0]),
             colorscale='oxy',
             cmin=0, cmax=max_intensity,
             colorbar=dict(thickness=20, ticklen=50)
@@ -106,7 +115,7 @@ class Hyperspecter(QtWidgets.QWidget):
         sliders = [{
             "pad": {"b": 10, "t": 60},
             "len": 0.9,
-            "x": 1,
+            "x": 0.1,
             "y": 0,
             "steps": [{
                 "args": [[f.name], frame_args(0)],
@@ -116,9 +125,6 @@ class Hyperspecter(QtWidgets.QWidget):
         }]
         # Layout
         fig.update_layout(
-            title='Slices in volumetric data',
-            width=800,
-            height=600,
             scene=dict(
                 zaxis=dict(range=[freqs.min()-1, freqs.max()+1], autorange=False),
                 aspectratio=dict(x=1, y=1, z=1),
@@ -138,14 +144,17 @@ class Hyperspecter(QtWidgets.QWidget):
                 "direction": "left",
                 "pad": {"r": 10, "t": 70},
                 "type": "buttons",
-                "x": 1,
+                "x": 0.1,
                 "y": 0,
             }], sliders=sliders
         )
-        self.browser.setHtml(fig.to_html(include_plotlyjs='cdn'))
+        return fig
+
+def start_webview():
+    app = Hyperspecter()
+
+    window = webview.create_window('Raman Imaging', app.dash.server)
+    webview.start()
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication([])
-    specter = Hyperspecter()
-    specter.show()
-    app.exec()
+    start_webview()
