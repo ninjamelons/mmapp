@@ -1,4 +1,6 @@
+from typing import List
 from fastapi import FastAPI, Header, HTTPException, File, UploadFile
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 
@@ -71,7 +73,7 @@ async def newSeries(series: SpectroscopySeries):
     return returnSeries
 
 #Update the filename for the last SeriesEntry entry
-@app.post("/sequence/update-last-filename", status_code=200, tags=["sequence"])
+@app.patch("/sequence/update-last-filename", status_code=200, tags=["sequence"])
 async def updateFilenameLastPos(seriesId: int, fileName: str):
     updateEntry = """UPDATE SeriesEntry SET FileName = (?)
         WHERE SeriesId in (SELECT SeriesId FROM SeriesEntry
@@ -97,12 +99,12 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
     contents = await file.read()
     contents = contents.decode(errors='ignore').splitlines()
     fnameArr = file.filename.split('[')
-    title = fnameArr[0].split('_')[0]
+    id = fnameArr[0].split('_')[0] #Deprecated - Only exists for testing now
     stageX = fnameArr[1].split('_')[0]
     stageY = fnameArr[1].split('_')[1].split(']')[0]
 
     npArr = []
-    npArr.append(['title', title])
+    npArr.append(['id', seriesId])
     npArr.append(['x', stageX])
     npArr.append(['y', stageY])
 
@@ -112,7 +114,7 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
     tpArr = np.transpose(np.array(npArr))
     df = pd.DataFrame([tpArr[1]], columns=tpArr[0])
 
-    csv = csvPath + title + '.csv'
+    csv = csvPath + seriesId + '.csv'
     try:
         header = False
         if not os.path.isfile(csv):
@@ -170,7 +172,7 @@ async def moveStageSequence(seriesId: int):
         raise HTTPException(status_code=404, detail='Series does not exist')
 
 #Move the stage to the next position in the series
-@app.post("/sequence/update-series-end-datetime", status_code=200, tags=["sequence"])
+@app.patch("/sequence/update-series-end-datetime", status_code=200, tags=["sequence"])
 async def updateSeriesEndDatetime(seriesId: int):
     updateSeries = """UPDATE Series SET
         EndDatetime = CURRENT_TIMESTAMP WHERE Id = (?)"""
@@ -185,6 +187,37 @@ async def updateSeriesEndDatetime(seriesId: int):
 
     return {'seriesId': seriesTbl['Id'],
         'EndDatetime': seriesTbl['EndDatetime']}
+
+@app.post("/sequence/post-multiple-sequence-files", status_code=200, tags=["sequence"])
+async def postMultipleSequenceFile(seriesId: int, files: List[UploadFile] = File(...)):
+    for file in files:
+        contents = await file.read()
+        contents = contents.decode(errors='ignore').splitlines()
+        fnameArr = file.filename.split('[')
+        id = fnameArr[0].split('_')[0]
+        stageX = fnameArr[1].split('_')[0]
+        stageY = fnameArr[1].split('_')[1].split(']')[0]
+
+        npArr = []
+        npArr.append(['id', seriesId])
+        npArr.append(['x', stageX])
+        npArr.append(['y', stageY])
+
+        for line in range(28, len(contents)-1):
+            lineArr = contents[line].split('\t')
+            npArr.append(lineArr)
+        tpArr = np.transpose(np.array(npArr))
+        df = pd.DataFrame([tpArr[1]], columns=tpArr[0])
+
+        csv = csvPath + str(seriesId) + '.csv'
+        try:
+            header = False
+            if not os.path.isfile(csv):
+                header = True
+            df.to_csv(csv, mode='a', header=header, index=False)
+        except:
+            return False
+    return True
 
 #Series properties Radius & Interval
 class Series(BaseModel):
@@ -242,6 +275,20 @@ async def getAllSeries():
     for entry in seriesTbl:
         returnSeries['series'].append(entry)
     return returnSeries
+
+
+@app.get("/")
+async def main():
+    content = """
+<body>
+<form action="/sequence/post-multiple-sequence-files?seriesId=1" enctype="multipart/form-data" method="post">
+<input name="files" type="file" multiple>
+<input type="submit">
+</form>
+</body>
+    """
+    return HTMLResponse(content=content)
+
 
 #Start server with uvicorn
 if __name__ == "__main__":

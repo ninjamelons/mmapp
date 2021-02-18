@@ -3,18 +3,23 @@ import pandas as pd
 
 import requests
 
+transmitterUrl = 'http://localhost:5500'
+
 #Get all series
 def getAllSeries():
-    return requests.get('http://localhost:5500/series/get-all-series').json()
+    return requests.get(transmitterUrl + '/series/get-all-series').json()
 
-def getSeriesDataframe(title):
-    csv = './csv/{}.csv'.format(title)
+def getSeriesAtId(id):
+    return requests.get(transmitterUrl + '/series/get-series?seriesId={}'.format(id)).json()
+
+def getSeriesDataframe(id):
+    csv = './csv/{}.csv'.format(id)
     return pd.read_csv(csv, index_col=False)
 
 #Can aggregate by None, Frequencies, Coordinate Range, Coordinate Range AND Frequencies
-def aggregateAcquistion(title, *, frequencies=None, coordRange=None):
+def aggregateAcquistion(id, *, frequencies=None, coordRange=None):
     #Get series dataframe
-    df = getSeriesDataframe(title)
+    df = getSeriesDataframe(id)
     radius = df['x'].max()
     frequency = [0, 9999]
     range = {'rangeX': [-radius, radius],

@@ -6,12 +6,14 @@ from threading import Thread
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 import dash_html_components as html
-
+from dash.dependencies import Input, Output
 
 import numpy as np
 import pandas as pd
 
 import data_handler as dh
+
+FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
 
 def rearrange_df(df, nb_frames):
     z_arr = list()
@@ -26,16 +28,20 @@ def rearrange_df(df, nb_frames):
 class Hyperspecter():
     def __init__(self):
         self.data = pd.DataFrame.from_dict(dh.getAllSeries()['series'])
+        self.data.rename(columns={'StartDatetime': 'Date'}, inplace=True)
+        self.options = self.getDropdownOptions()
         self.title = 'title'
 
         self.dash = dash.Dash(
-            external_stylesheets=[dbc.themes.BOOTSTRAP]
+            external_stylesheets=[dbc.themes.BOOTSTRAP, FONT_AWESOME]
         )
         self.grid_layout()
     
     def grid_layout(self):
         self.dash.layout = html.Div([
-            dbc.Row([dbc.Col(self.seriesTable(), width=4), dbc.Col(self.seriesGraph(), width=8)])
+            dbc.Row([
+                dbc.Col(self.seriesTable(), md=12, lg=5),
+                dbc.Col(self.seriesGraph(), md=12, lg=7)])
         ], style={'overflowX': 'hidden'})
 
     def seriesTable(self):
@@ -45,12 +51,35 @@ class Hyperspecter():
                 html.H1('Available Series')
             ]),
             dbc.CardBody([
-                dbc.Table.from_dataframe(self.data.iloc[:,np.r_[1:4, 8:9, 6:8]],
+                dbc.ListGroup([
+                    dbc.ListGroupItemHeading('Select series'),
+                    dcc.Dropdown(id='series-selector', options=self.options,
+                        value='', placeholder='Enter series title',
+                        style={'marginBottom': '1rem'})
+                ]),
+                dbc.ListGroupItemHeading('Filter series'),
+                dbc.InputGroup([
+                    dcc.DatePickerRange(id='date-range',
+                        className='mb-2',
+                        style={'minWidth': '100%'})
+                ], size='lg'),
+                dbc.InputGroup([
+                    dbc.InputGroupAddon('No. Points'),
+                    dbc.Input(type='number', id='no-points-lower',
+                        style={'minWidth': '6rem', 'maxWidth': '8rem'}),
+                    dbc.Input(type='number', id='no-points-upper',
+                        style={'minWidth': '6rem', 'maxWidth': '8rem'}),
+                ], size='lg'),
+                dbc.InputGroup([
+                ], size='lg', className='mb-2'),
+                dbc.Table.from_dataframe(self.data.iloc[:,np.r_[1:4, 8:9, 6:7]],
                     bordered=True,
-                    responsive=True
+                    responsive=True,
+                    id='table',
+                    style={'textAlign': 'center'}
                 )
-            ], style={'textAlign': 'center'})
-        ], style={'height': '52rem', 'margin': '2rem 0rem 2rem 2rem'})
+            ])
+        ], style={'margin': '2rem 0rem 2rem 2rem'})
 
     def seriesGraph(self):
         return dbc.Card([
@@ -59,13 +88,19 @@ class Hyperspecter():
             ]),
             dbc.CardBody([
                 html.H3(self.title, style={'textAlign': 'center'}),
-                dcc.Graph(figure=self.show_graph(), style={'height': '95%'})
+                dcc.Graph(id='graph-dd-value')
             ])
-        ], style={'height': '52rem', 'margin': '2rem 2rem 2rem 0rem'})
+        ], style={'margin': '2rem 2rem 2rem 0rem'})
 
-    def show_graph(self):
+    def getDropdownOptions(self):
+        df_opt = self.data.loc[:, ['Id', 'Title']]
+        df_opt.rename(columns={'Id': 'value', 'Title': 'label'}, inplace=True)
+        dict_opt = df_opt.to_dict(orient='records')
+        return dict_opt
+
+    def show_graph(self, id):
         #Dataframe
-        df = dh.aggregateAcquistion(self.title)
+        df = dh.aggregateAcquistion(id)
         dims = df['x'].max() * 2 + 1
         xy_shape = (dims, dims)
         nb_frames = df.iloc[:,2:].shape[1]
@@ -125,12 +160,13 @@ class Hyperspecter():
         }]
         # Layout
         fig.update_layout(
+            height=600,
             scene=dict(
                 zaxis=dict(range=[freqs.min()-1, freqs.max()+1], autorange=False),
                 aspectratio=dict(x=1, y=1, z=1),
             ),
             updatemenus = [{
-               "buttons": [{
+                "buttons": [{
                         "args": [None, frame_args(50)],
                         "label": "&#9654;", # play symbol
                         "method": "animate",
@@ -153,8 +189,19 @@ class Hyperspecter():
 def start_webview():
     app = Hyperspecter()
 
-    window = webview.create_window('Raman Imaging', app.dash.server)
+    @app.dash.callback(
+        Output('graph-dd-value', 'figure'),
+        [Input('series-selector', 'value')])
+    def update_graph_input(value):
+        return app.show_graph(value)
+
+    window = webview.create_window('Raman Imaging', app.dash.server, width=1200, height=850)
     webview.start()
 
+def start_dash():
+    app = Hyperspecter()
+    app.dash.run_server(debug=True, port=5501)
+
 if __name__ == "__main__":
+    #start_dash()
     start_webview()
