@@ -14,7 +14,7 @@ import pandas as pd
 from mmcontrols import stage_lib
 from mmcontrols import position_lib
 
-stageDevice = 'XY'
+stageDevice = 'XYStage'
 csvPath = '../csv/'
 
 #Access row columns by name
@@ -40,7 +40,7 @@ app = FastAPI(
     title="Transmitter Service",
     description="""Receives requests from LabSpec to acquire spectroscopy data
          and move the microscope stage through micromanager""",
-    version="1.0.0",
+    version="1.0.1",
     openapi_tags=api_tags
 )
 
@@ -68,9 +68,17 @@ async def newSeries(series: SpectroscopySeries):
     db.execute(insertOrigin, [insertId, 0, 0, 0])
     db.commit()
 
+    final = False
+    if series.Radius == 0:
+        final = True
+
     #Return auto-incremented Series.Id
     returnSeries = {
-        'seriesId': insertId
+        'seriesId': insertId,
+        'final': final,
+        'stageX': 0,
+        'stageY': 0,
+        'pointNo': 0
     }
     return returnSeries
 
@@ -167,6 +175,8 @@ async def moveStageSequence(seriesId: int):
         returnSeries = {
             "seriesId": seriesId,
             "final": nextPos[3],
+            "stageX": nextPos[0],
+            "stageY": nextPos[1],
             "pointNo": nextPos[2]
         }
         return returnSeries
