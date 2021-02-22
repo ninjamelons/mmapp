@@ -9,6 +9,23 @@ transmitterUrl = 'http://localhost:5500'
 def getAllSeries():
     return requests.get(transmitterUrl + '/series/get-all-series').json()
 
+def getSeriesRange(dateRange, pointsRange):
+    queries = []
+    if dateRange[0] != None:
+        queries.append(f'sdate={dateRange[0]}')
+    if dateRange[1] != None:
+        queries.append(f'edate={dateRange[1]}')
+    if pointsRange[0] != None:
+        queries.append(f'ptsLower={pointsRange[0]}')
+    if pointsRange[1] != None:
+        queries.append(f'ptsUpper={pointsRange[1]}')
+
+    query = '?'
+    for q in queries:
+        query += q + '&'
+
+    return requests.get(transmitterUrl + f'/series/get-series-range{query}').json()
+
 def getSeriesAtId(id):
     return requests.get(transmitterUrl + '/series/get-series?seriesId={}'.format(id)).json()
 

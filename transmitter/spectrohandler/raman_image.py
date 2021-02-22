@@ -28,7 +28,8 @@ def rearrange_df(df, nb_frames):
 class Hyperspecter():
     def __init__(self):
         self.data = pd.DataFrame.from_dict(dh.getAllSeries()['series'])
-        self.data.rename(columns={'StartDatetime': 'Date'}, inplace=True)
+        self.table_headers = self.data.iloc[:,np.r_[1:4, 8:9, 6:7]].rename(
+            columns={'StartDatetime': 'Date'}).columns
         self.options = self.getDropdownOptions()
         self.title = 'title'
 
@@ -40,12 +41,11 @@ class Hyperspecter():
     def grid_layout(self):
         self.dash.layout = html.Div([
             dbc.Row([
-                dbc.Col(self.seriesTable(), md=12, lg=5),
-                dbc.Col(self.seriesGraph(), md=12, lg=7)])
+                dbc.Col(self.columnTable(), md=12, lg=5),
+                dbc.Col(self.columnGraph(), md=12, lg=7)])
         ], style={'overflowX': 'hidden'})
 
-    def seriesTable(self):
-        self.data['No. Points'] = (self.data['Radius'] * 2 + 1)**2
+    def columnTable(self):
         return dbc.Card([
             dbc.CardHeader([
                 html.H1('Available Series')
@@ -60,28 +60,26 @@ class Hyperspecter():
                 dbc.ListGroupItemHeading('Filter series'),
                 dbc.InputGroup([
                     dcc.DatePickerRange(id='date-range',
-                        className='mb-2',
-                        style={'minWidth': '100%'})
+                        className='mb-2'),
+                    dbc.Button(html.I(className='fas fa-times'),
+                        id='reset-date',
+                        style={'height': '3rem', 'width': '3rem', 'marginLeft': '0.5rem'})
                 ], size='lg'),
                 dbc.InputGroup([
                     dbc.InputGroupAddon('No. Points'),
-                    dbc.Input(type='number', id='no-points-lower',
+                    dbc.Input(type='number', id='points-lower',
                         style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                    dbc.Input(type='number', id='no-points-upper',
+                    dbc.Input(type='number', id='points-upper',
                         style={'minWidth': '6rem', 'maxWidth': '8rem'}),
                 ], size='lg'),
                 dbc.InputGroup([
                 ], size='lg', className='mb-2'),
-                dbc.Table.from_dataframe(self.data.iloc[:,np.r_[1:4, 8:9, 6:7]],
-                    bordered=True,
-                    responsive=True,
-                    id='table',
-                    style={'textAlign': 'center'}
-                )
+                dbc.Table(id='table', bordered=True,
+                    style={'textAlign': 'center'})
             ])
         ], style={'margin': '2rem 0rem 2rem 2rem'})
 
-    def seriesGraph(self):
+    def columnGraph(self):
         return dbc.Card([
             dbc.CardHeader([
                 html.H1('Selected Series')
@@ -91,6 +89,23 @@ class Hyperspecter():
                 dcc.Graph(id='graph-dd-value')
             ])
         ], style={'margin': '2rem 2rem 2rem 0rem'})
+    
+    def getSeriesTable(self, df):
+        try:
+            df = df.iloc[:,np.r_[1:4, 8:9, 6:7]]
+        except:
+            print("Dataframe Empty")
+
+        table_header = [
+            html.Thead(html.Tr([html.Th(col) for col in self.table_headers]))
+        ]
+        
+        rows = []
+        for index, row in df.iterrows():
+            rows.append(html.Tr([html.Td(field) for field in row]))
+        table_body = [html.Tbody(rows)]
+
+        return table_header+table_body
 
     def getDropdownOptions(self):
         df_opt = self.data.loc[:, ['Id', 'Title']]
@@ -100,7 +115,10 @@ class Hyperspecter():
 
     def show_graph(self, id):
         #Dataframe
-        df = dh.aggregateAcquistion(id)
+        try:
+            df = dh.aggregateAcquistion(id)
+        except:
+            return 0
         dims = df['x'].max() * 2 + 1
         xy_shape = (dims, dims)
         nb_frames = df.iloc[:,2:].shape[1]
@@ -194,8 +212,27 @@ def start_webview():
         [Input('series-selector', 'value')])
     def update_graph_input(value):
         return app.show_graph(value)
+    
+    @app.dash.callback(
+        Output('table', 'children'),
+        [Input('date-range', 'start_date'),
+        Input('date-range', 'end_date'),
+        Input('points-lower', 'value'),
+        Input('points-upper', 'value')])
+    def update_table_df(start_date, end_date, points_lower, points_upper):
+        if start_date == None and end_date == None and points_lower == None and points_upper == None:
+            return app.getSeriesTable(app.data)
+        df = pd.DataFrame.from_dict(dh.getSeriesRange([start_date, end_date], [points_lower, points_upper])['series'])
+        return app.getSeriesTable(df)
 
-    window = webview.create_window('Raman Imaging', app.dash.server, width=1200, height=850)
+    @app.dash.callback(
+        [Output('date-range', 'start_date'),
+        Output('date-range', 'end_date')],
+        [Input('reset-date', 'n_clicks')])
+    def reset_date_range(nclick):
+        return None, None
+
+    window = webview.create_window('Raman Imaging', app.dash.server, width=1300, height=850)
     webview.start()
 
 def start_dash():

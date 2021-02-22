@@ -5,6 +5,8 @@ from pydantic import BaseModel
 import uvicorn
 
 import os
+from datetime import date
+from datetime import datetime
 import sqlite3
 import numpy as np
 import pandas as pd
@@ -269,13 +271,34 @@ async def getSeries(seriesId: int):
 async def getAllSeries():
     returnSeries = {'series': []}
     #Select series
-    selectSeries = 'SELECT * FROM Series'
+    selectSeries = 'SELECT *, ((Radius*2+1)*(Radius*2+1)) as NoPoints FROM Series'
     seriesTbl = db.execute(selectSeries, []).fetchall()
     
     for entry in seriesTbl:
         returnSeries['series'].append(entry)
     return returnSeries
 
+@app.get("/series/get-series-range", status_code=200, tags=["series"])
+async def getSeriesRange(sdate: date = date(2021, 1, 1),
+                       edate: date = date.today(),
+                       ptsLower: int = 1,
+                       ptsUpper: int = 1000):
+    returnSeries = {'series': []}
+
+    edate = datetime(year=edate.year, month=edate.month, day=edate.day,
+         hour=23, minute=59, second=59, microsecond=9999)
+    #Select series
+    selectSeries = """SELECT *, ((Radius*2+1)*(Radius*2+1)) as NoPoints
+                    FROM Series
+                    WHERE StartDatetime >= (?) AND
+                    EndDatetime <= (?) AND
+                    NoPoints >= (?) AND
+                    NoPoints <= (?)"""
+    seriesTbl = db.execute(selectSeries, [sdate, edate, ptsLower, ptsUpper]).fetchall()
+    
+    for entry in seriesTbl:
+        returnSeries['series'].append(entry)
+    return returnSeries
 
 @app.get("/")
 async def main():
