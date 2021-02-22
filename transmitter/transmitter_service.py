@@ -110,7 +110,7 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
     contents = contents.decode(errors='ignore').splitlines()
     fnameArr = file.filename.split('[')
     id = fnameArr[0].split('_')[0] #Deprecated - Only exists for testing now
-    stageX = fnameArr[1].split('_')[0]
+    stageX = fnameArr[1].split('_')[0]#Previous comment is all L I E S
     stageY = fnameArr[1].split('_')[1].split(']')[0]
 
     npArr = []
@@ -125,15 +125,21 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
     df = pd.DataFrame([tpArr[1]], columns=tpArr[0])
 
     csv = csvPath + seriesId + '.csv'
+
+    retObj =  {
+        'seriesId': seriesId,
+        'success': True,
+        'csvPath': csv
+    }
     try:
         header = False
         if not os.path.isfile(csv):
             header = True
         df.to_csv(csv, mode='a', header=header, index=False)
     except:
-        return False
+        retObj['success'] = False
 
-    return True
+    return retObj
 
 #Move the stage to the next position in the series
 @app.post("/sequence/move-stage-sequence", status_code=200, tags=["sequence"])
@@ -222,14 +228,19 @@ async def postMultipleSequenceFile(seriesId: int, files: List[UploadFile] = File
         df = pd.DataFrame([tpArr[1]], columns=tpArr[0])
 
         csv = csvPath + str(seriesId) + '.csv'
+        retObj =  {
+            'seriesId': seriesId,
+            'success': True,
+            'csvPath': csv
+        }
         try:
             header = False
             if not os.path.isfile(csv):
                 header = True
             df.to_csv(csv, mode='a', header=header, index=False)
         except:
-            return False
-    return True
+            retObj['success'] = False
+    return retObj
 
 #Series properties Radius & Interval
 class Series(BaseModel):
