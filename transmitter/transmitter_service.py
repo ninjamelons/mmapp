@@ -40,7 +40,7 @@ app = FastAPI(
     title="Transmitter Service",
     description="""Receives requests from LabSpec to acquire spectroscopy data
          and move the microscope stage through micromanager""",
-    version="1.1.0",
+    version="1.1.1",
     openapi_tags=api_tags
 )
 
@@ -48,11 +48,12 @@ app = FastAPI(
 class SpectroscopySeries(BaseModel):
     Title: str
     Radius: int
-    Interval: int
+    Interval: float
 
 #Create a new series & Return the series ID
 @app.post("/sequence/new-series", status_code=201, tags=["sequence"])
 async def newSeries(series: SpectroscopySeries):
+    print(series.Interval)
     #Get current stage position == Series Origin
     try:
         stage = stage_lib.StageLib(stageDevice)
@@ -91,9 +92,6 @@ async def updateFilenameLastPos(seriesId: int, fileName: str):
     db.execute(updateEntry, [fileName, seriesId])
     db.commit()
     
-    #TODO - Notify ML program that file is accessible
-
-    #TODO - SET PROPER RETURN VALUE
     selectEntry = """SELECT SeriesId, StageX, StageY FROM SeriesEntry
         WHERE SeriesId = (?) LIMIT 1"""
     entry = db.execute(selectEntry, [seriesId]).fetchone()
@@ -106,11 +104,15 @@ async def updateFilenameLastPos(seriesId: int, fileName: str):
 
 @app.post("/sequence/post-sequence-file", status_code=200, tags=["sequence"])
 async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
-    contents = await file.read()
-    contents = contents.decode(errors='ignore').splitlines()
+    try:
+        contents = await file.read()
+        contents = contents.decode(errors='ignore').splitlines()
+    except Exception as ex:
+        print(ex)
+
     fnameArr = file.filename.split('[')
     id = fnameArr[0].split('_')[0] #Deprecated - Only exists for testing now
-    stageX = fnameArr[1].split('_')[0]#Previous comment is all L I E S
+    stageX = fnameArr[1].split('_')[0] #Previous comment is all L I E S
     stageY = fnameArr[1].split('_')[1].split(']')[0]
 
     npArr = []
