@@ -336,5 +336,5 @@ async def main():
 
 #Start server with uvicorn
 if __name__ == "__main__":
-    #uvicorn.run(app, host="127.0.0.1", port=5500, timeout_keep_alive=0)
-    uvicorn.run("transmitter_service:app", host="127.0.0.1", port=5500, reload=True, timeout_keep_alive=0, log_level="info")
+    #uvicorn.run(app, host="0.0.0.0", port=5500, timeout_keep_alive=0)
+    uvicorn.run("transmitter_service:app", host="0.0.0.0", port=5500, reload=True, timeout_keep_alive=0, log_level="info")
