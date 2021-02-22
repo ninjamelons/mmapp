@@ -40,7 +40,7 @@ app = FastAPI(
     title="Transmitter Service",
     description="""Receives requests from LabSpec to acquire spectroscopy data
          and move the microscope stage through micromanager""",
-    version="1.0.1",
+    version="1.1.0",
     openapi_tags=api_tags
 )
 
