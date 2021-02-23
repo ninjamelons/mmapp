@@ -11,6 +11,8 @@ import sqlite3
 import numpy as np
 import pandas as pd
 
+import logging, sys
+
 from mmcontrols import stage_lib
 from mmcontrols import position_lib
 
@@ -53,7 +55,6 @@ class SpectroscopySeries(BaseModel):
 #Create a new series & Return the series ID
 @app.post("/sequence/new-series", status_code=201, tags=["sequence"])
 async def newSeries(series: SpectroscopySeries):
-    print(series.Interval)
     #Get current stage position == Series Origin
     try:
         stage = stage_lib.StageLib(stageDevice)
@@ -104,11 +105,12 @@ async def updateFilenameLastPos(seriesId: int, fileName: str):
 
 @app.post("/sequence/post-sequence-file", status_code=200, tags=["sequence"])
 async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
+    logging.debug(f'Uploaded file: {file}')
     try:
         contents = await file.read()
         contents = contents.decode(errors='ignore').splitlines()
     except Exception as ex:
-        print(ex)
+        logging.error(ex)
 
     fnameArr = file.filename.split('[')
     id = fnameArr[0].split('_')[0] #Deprecated - Only exists for testing now
@@ -119,6 +121,8 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
     npArr.append(['id', seriesId])
     npArr.append(['x', stageX])
     npArr.append(['y', stageY])
+
+    logging.debug(f'File: [X:{stageX},Y:{stageY}]')
 
     for line in range(28, len(contents)-1):
         lineArr = contents[line].split('\t')
@@ -140,6 +144,8 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
         df.to_csv(csv, mode='a', header=header, index=False)
     except:
         retObj['success'] = False
+    
+    logging.debug(f'Success: {retObj["success"]}')
 
     return retObj
 
@@ -187,6 +193,9 @@ async def moveStageSequence(seriesId: int):
             "stageY": nextPos[1],
             "pointNo": nextPos[2]
         }
+
+        logging.debug(f'Move stage: [X:{nextPos[0]},Y:{nextPos[1]}]; Points:{nextPos[2]}/{noPoints}')
+
         return returnSeries
     else:
         raise HTTPException(status_code=404, detail='Series does not exist')
@@ -339,4 +348,5 @@ async def main():
 #Start server with uvicorn
 if __name__ == "__main__":
     #uvicorn.run(app, host="0.0.0.0", port=5500, timeout_keep_alive=0)
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
     uvicorn.run("transmitter_service:app", host="0.0.0.0", port=5500, reload=True, timeout_keep_alive=0, log_level="info")
