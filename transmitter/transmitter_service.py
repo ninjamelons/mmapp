@@ -114,7 +114,7 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
 
     fnameArr = file.filename.split('[')
     id = fnameArr[0].split('_')[0] #Deprecated - Only exists for testing now
-    stageX = fnameArr[1].split('_')[0] #Previous comment is all L I E S
+    stageX = fnameArr[1].split('_')[0]
     stageY = fnameArr[1].split('_')[1].split(']')[0]
 
     npArr = []
@@ -130,7 +130,7 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
     tpArr = np.transpose(np.array(npArr))
     df = pd.DataFrame([tpArr[1]], columns=tpArr[0])
 
-    csv = csvPath + seriesId + '.csv'
+    csv = csvPath + str(seriesId) + '.csv'
 
     retObj =  {
         'seriesId': seriesId,

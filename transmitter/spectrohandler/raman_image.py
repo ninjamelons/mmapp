@@ -6,10 +6,11 @@ from threading import Thread
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 
 import numpy as np
 import pandas as pd
+import scipy.ndimage
 
 import data_handler as dh
 
@@ -42,8 +43,29 @@ class Hyperspecter():
         self.dash.layout = html.Div([
             dbc.Row([
                 dbc.Col(self.columnTable(), md=12, lg=5),
-                dbc.Col(self.columnGraph(), md=12, lg=7)])
-        ], style={'overflowX': 'hidden'})
+                dbc.Col(self.columnGraph(), md=12, lg=7)]),
+            dbc.Row([
+                dbc.Col(
+                    dbc.Card([
+                        dbc.Col([
+                            dbc.Alert('Something went wrong. Selected series may not include the input frequency',
+                                id='surface-alert', color='danger', className='d-none',
+                                style={'marginTop': '1rem'}),
+                            dbc.InputGroup([
+                                dbc.InputGroupAddon('Frequency'),
+                                dbc.Input(id='surface-frequency', type='number', value=1000),
+                                dbc.InputGroupAddon('Smoothing', style={'marginLeft': '1rem'}),
+                                dbc.Input(id='surface-smoothing', type='number', min=0, max=5, step=0.1, value=0.6),
+                                dbc.Button(html.I(className='fas fa-search'),
+                                    id='surface-submit', style={'marginLeft': '1rem'}),
+                            ], size='lg', style={'marginTop': '1rem'}),
+                            dcc.Graph(id='surface-3d-graph'),
+                        ], md=5),
+                        dbc.Col([
+                            
+                        ], md=7)
+                    ]), md=12)])
+        ], style={'overflowX': 'hidden', 'margin': '2rem'})
 
     def columnTable(self):
         return dbc.Card([
@@ -77,7 +99,7 @@ class Hyperspecter():
                 dbc.Table(id='table', bordered=True,
                     style={'textAlign': 'center'})
             ])
-        ], style={'margin': '2rem 0rem 2rem 2rem'})
+        ])
 
     def columnGraph(self):
         return dbc.Card([
@@ -85,16 +107,20 @@ class Hyperspecter():
                 html.H1('Selected Series')
             ]),
             dbc.CardBody([
+                dbc.Alert('Selected series is not valid',
+                    id='volumetric-alert', color='danger', className='d-none',
+                    style={'marginTop': '1rem'}),
                 html.H3(self.title, style={'textAlign': 'center'}),
-                dcc.Graph(id='graph-dd-value')
+                dcc.Graph(id='volumetric-graph'),
+                html.H3(id="volumetric-graph-click")
             ])
-        ], style={'margin': '2rem 2rem 2rem 0rem'})
+        ])
     
     def getSeriesTable(self, df):
         try:
             df = df.iloc[:,np.r_[1:4, 8:9, 6:7]]
-        except:
-            print("Dataframe Empty")
+        except Exception as ex:
+            print(ex)
 
         table_header = [
             html.Thead(html.Tr([html.Th(col) for col in self.table_headers]))
@@ -113,13 +139,11 @@ class Hyperspecter():
         dict_opt = df_opt.to_dict(orient='records')
         return dict_opt
 
-    def show_graph(self, id):
+    def volumetric_graph(self, id):
         #Dataframe
-        try:
-            df = dh.aggregateAcquistion(id)
-        except:
-            return 0
-        dims = df['x'].max() * 2 + 1
+        df = dh.aggregateAcquistion(id)
+        radius = df['x'].max()
+        dims = radius * 2 + 1
         xy_shape = (dims, dims)
         nb_frames = df.iloc[:,2:].shape[1]
         max_intensity = df.iloc[:,2:].max(axis=1).max()
@@ -133,11 +157,16 @@ class Hyperspecter():
             -1).swapaxes(1,2)
         df = rearrange_df(df, nb_frames)
 
+        x = np.linspace(radius, -1*radius, xy_shape[0])
+        y = np.linspace(-1*radius, radius, xy_shape[1])
+
         #Plotly figure
         frames = list()
         for nb in range(nb_frames):
             frame = go.Frame(
                 data=go.Surface(
+                    x=x,
+                    y=y,
                     z=freqs[nb] * np.ones(xy_shape),
                     surfacecolor=np.flipud(df[nb]),
                     cmin=0,
@@ -150,6 +179,8 @@ class Hyperspecter():
 
         #Animation Data
         fig.add_trace(go.Surface(
+            x=x,
+            y=y,
             z=freqs[0] * np.ones(xy_shape),
             surfacecolor=np.flipud(df[0]),
             colorscale='oxy',
@@ -178,7 +209,7 @@ class Hyperspecter():
         }]
         # Layout
         fig.update_layout(
-            height=600,
+            height=700,
             scene=dict(
                 zaxis=dict(range=[freqs.min()-1, freqs.max()+1], autorange=False),
                 aspectratio=dict(x=1, y=1, z=1),
@@ -203,15 +234,70 @@ class Hyperspecter():
             }], sliders=sliders
         )
         return fig
+    
+    def surface_3d_graph(self, id, frequency, smoothing):
+        #Dataframe
+        id = int(id)
+        frequency = float(frequency)
+        df = dh.aggregateAcquistion(id, frequencies=[frequency-5, frequency+5])
 
-def start_webview():
-    app = Hyperspecter()
+        #Input: Dataframe with e.g. columns; 'x', 'y', '1005.43'
+        array = df.columns[2:]
+        idx = (np.abs(array - frequency)).argmin()
+        nearestFreq = array[idx]
+
+        df = df.loc[:,['x','y',nearestFreq]]
+
+        #Convert 3 column df to rows = x, columns = y, values = intensity
+        df = df.pivot(index='x', columns='y', values=df.columns[len(df.columns)-1])
+
+        #Present dataframe
+        z = df.values
+        sh_0, sh_1 = z.shape
+        x, y = np.linspace(sh_0, -1*sh_0, sh_0), np.linspace(-1*sh_1, sh_1, sh_1)
+
+        #Smooth z-values
+        sigma = [smoothing, smoothing]
+        z = scipy.ndimage.filters.gaussian_filter(z, sigma)
+        
+        fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
+        fig.update_layout(title=nearestFreq, autosize=False,
+                          width=600, height=600,
+                          margin=dict(l=65, r=50, b=65, t=90))
+        return fig
+
+def dash_callbacks(app):
+    #Fallback figure - Empty figure for default
+    fig = go.Figure(data=[go.Scatter(x=[], y=[])])
 
     @app.dash.callback(
-        Output('graph-dd-value', 'figure'),
+        Output('volumetric-graph', 'figure'),
+        Output('volumetric-alert', 'className'),
         [Input('series-selector', 'value')])
-    def update_graph_input(value):
-        return app.show_graph(value)
+    def update_volumetric_graph(id):
+        if id == '':
+            return fig, 'd-none'
+        try:
+            volumetric_fig = app.volumetric_graph(id)
+        except:
+            return fig, 'd-block'
+        return volumetric_fig, 'd-none'
+
+    @app.dash.callback(
+        Output('surface-3d-graph', 'figure'),
+        Output('surface-alert', 'className'),
+        [Input('surface-submit', 'n_clicks'),
+        Input('series-selector', 'value')],
+        [State('surface-frequency', 'value'),
+        State('surface-smoothing', 'value')])
+    def update_surface_graph(n_clicks, id, frequency, smoothing):
+        if id == '':
+            return fig, 'd-none'
+        try:
+            surface_fig = app.surface_3d_graph(id, frequency, smoothing)
+        except:
+            return fig, 'd-block'
+        return surface_fig, 'd-none'
     
     @app.dash.callback(
         Output('table', 'children'),
@@ -231,14 +317,31 @@ def start_webview():
         [Input('reset-date', 'n_clicks')])
     def reset_date_range(nclick):
         return None, None
+    
+    @app.dash.callback(
+        Output('volumetric-graph-click', 'children'),
+        [Input('volumetric-graph', 'clickData')],
+        [State('volumetric-graph', 'figure')])
+    def volumetric_onclick(clickData, fig):
+        trigger = dash.callback_context.triggered[0]["prop_id"]
+        if trigger == 'volumetric-graph.clickData':
+            return str(clickData['points'])
+
+def start_webview():
+    app = Hyperspecter()
+
+    dash_callbacks(app)
 
     window = webview.create_window('Raman Imaging', app.dash.server, width=1300, height=850)
     webview.start()
 
 def start_dash():
     app = Hyperspecter()
+
+    dash_callbacks(app)
+
     app.dash.run_server(debug=True, port=5501)
 
 if __name__ == "__main__":
-    #start_dash()
-    start_webview()
+    start_dash()
+    #start_webview()
