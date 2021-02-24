@@ -42,79 +42,88 @@ class Hyperspecter():
     def grid_layout(self):
         self.dash.layout = html.Div([
             dbc.Row([
-                dbc.Col(self.columnTable(), md=12, lg=5),
-                dbc.Col(self.columnGraph(), md=12, lg=7)]),
+                dbc.Col([
+                    dbc.Card([
+                        dbc.CardHeader([
+                            html.H3('Available Series')
+                        ]),
+                        dbc.CardBody([
+                            dbc.Row([
+                                dbc.Col([
+                                    dbc.ListGroup([
+                                        dbc.ListGroupItemHeading('Select series'),
+                                        dcc.Dropdown(id='series-selector', options=self.options,
+                                            value='', placeholder='Enter series title',
+                                            style={'marginBottom': '0.5rem'}),
+                                        dbc.InputGroup([
+                                            dbc.InputGroupAddon('Max Intensity'),
+                                            dbc.Input(type='number', id='series-intensity', value=5000,
+                                                style={'minWidth': '6rem', 'maxWidth': '8rem'}),
+                                        ], size='lg', style={'marginBottom': '1rem'})
+                                    ]),
+                                    dbc.ListGroupItemHeading('Filter series'),
+                                    dbc.InputGroup([
+                                        dcc.DatePickerRange(id='date-range',
+                                            className='mb-2'),
+                                        dbc.Button(html.I(className='fas fa-times'),
+                                            id='reset-date',
+                                            style={'height': '3rem', 'width': '3rem', 'marginLeft': '0.5rem'})
+                                    ], size='lg'),
+                                    dbc.InputGroup([
+                                        dbc.InputGroupAddon('No. Points'),
+                                        dbc.Input(type='number', id='points-lower',
+                                            style={'minWidth': '6rem', 'maxWidth': '8rem'}),
+                                        dbc.Input(type='number', id='points-upper',
+                                            style={'minWidth': '6rem', 'maxWidth': '8rem'}),
+                                    ], size='lg'),
+                                    dbc.InputGroup([
+                                    ], size='lg', className='mb-2'),
+                                ], md=6, lg=5,),
+                                dbc.Col([
+                                    dbc.Table(id='table', bordered=True,
+                                        style={'textAlign': 'center'})
+                                ], md=6, lg=7)
+                            ])
+                        ])
+                    ])
+                ])
+            ], style={'marginBottom': '1rem'}),
             dbc.Row([
                 dbc.Col(
                     dbc.Card([
-                        dbc.Col([
-                            dbc.Alert('Something went wrong. Selected series may not include the input frequency',
-                                id='surface-alert', color='danger', className='d-none',
-                                style={'marginTop': '1rem'}),
-                            dbc.InputGroup([
-                                dbc.InputGroupAddon('Frequency'),
-                                dbc.Input(id='surface-frequency', type='number', value=1000),
-                                dbc.InputGroupAddon('Smoothing', style={'marginLeft': '1rem'}),
-                                dbc.Input(id='surface-smoothing', type='number', min=0, max=5, step=0.1, value=0.6),
-                                dbc.Button(html.I(className='fas fa-search'),
-                                    id='surface-submit', style={'marginLeft': '1rem'}),
-                            ], size='lg', style={'marginTop': '1rem'}),
-                            dcc.Graph(id='surface-3d-graph'),
-                        ], md=5),
-                        dbc.Col([
-                            
-                        ], md=7)
-                    ]), md=12)])
-        ], style={'overflowX': 'hidden', 'margin': '2rem'})
-
-    def columnTable(self):
-        return dbc.Card([
-            dbc.CardHeader([
-                html.H1('Available Series')
-            ]),
-            dbc.CardBody([
-                dbc.ListGroup([
-                    dbc.ListGroupItemHeading('Select series'),
-                    dcc.Dropdown(id='series-selector', options=self.options,
-                        value='', placeholder='Enter series title',
-                        style={'marginBottom': '1rem'})
-                ]),
-                dbc.ListGroupItemHeading('Filter series'),
-                dbc.InputGroup([
-                    dcc.DatePickerRange(id='date-range',
-                        className='mb-2'),
-                    dbc.Button(html.I(className='fas fa-times'),
-                        id='reset-date',
-                        style={'height': '3rem', 'width': '3rem', 'marginLeft': '0.5rem'})
-                ], size='lg'),
-                dbc.InputGroup([
-                    dbc.InputGroupAddon('No. Points'),
-                    dbc.Input(type='number', id='points-lower',
-                        style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                    dbc.Input(type='number', id='points-upper',
-                        style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                ], size='lg'),
-                dbc.InputGroup([
-                ], size='lg', className='mb-2'),
-                dbc.Table(id='table', bordered=True,
-                    style={'textAlign': 'center'})
+                        dbc.CardHeader([
+                            html.H3('Selected Series')
+                        ]),
+                        dbc.CardBody([
+                            dbc.Row([
+                                dbc.Col([
+                                    dbc.Alert('Selected series is not valid',
+                                        id='volumetric-alert', color='danger', className='d-none',
+                                        style={'marginTop': '1rem'}),
+                                    html.H3(self.title, style={'textAlign': 'center'}),
+                                    dcc.Graph(id='volumetric-graph'),
+                                    html.H3(id="volumetric-graph-click")
+                                ], lg=12, xl=6),
+                                dbc.Col([
+                                    dbc.Alert('Something went wrong. Selected series may not include the input frequency',
+                                        id='surface-alert', color='danger', className='d-none',
+                                        style={'marginTop': '1rem'}),
+                                    dbc.InputGroup([
+                                        dbc.InputGroupAddon('Frequency'),
+                                        dbc.Input(id='surface-frequency', type='number', value=1000),
+                                        dbc.InputGroupAddon('Smoothing', style={'marginLeft': '1rem'}),
+                                        dbc.Input(id='surface-smoothing', type='number', min=0, max=5, step=0.1, value=0.6),
+                                        dbc.Button(html.I(className='fas fa-search'),
+                                            id='surface-submit', style={'marginLeft': '1rem'}),
+                                    ], size='lg', style={'marginTop': '1rem'}),
+                                    dcc.Graph(id='surface-3d-graph'),
+                                ], lg=12, xl=6)
+                            ])
+                        ])
+                    ])
+                )
             ])
-        ])
-
-    def columnGraph(self):
-        return dbc.Card([
-            dbc.CardHeader([
-                html.H1('Selected Series')
-            ]),
-            dbc.CardBody([
-                dbc.Alert('Selected series is not valid',
-                    id='volumetric-alert', color='danger', className='d-none',
-                    style={'marginTop': '1rem'}),
-                html.H3(self.title, style={'textAlign': 'center'}),
-                dcc.Graph(id='volumetric-graph'),
-                html.H3(id="volumetric-graph-click")
-            ])
-        ])
+        ], style={'overflowX': 'hidden', 'margin': '1rem'})
     
     def getSeriesTable(self, df):
         try:
@@ -139,9 +148,9 @@ class Hyperspecter():
         dict_opt = df_opt.to_dict(orient='records')
         return dict_opt
 
-    def volumetric_graph(self, id):
+    def volumetric_graph(self, id, intensity):
         #Dataframe
-        df = dh.aggregateAcquistion(id)
+        df = dh.aggregateAcquistion(id, maxIntensity=intensity)
         radius = df['x'].max()
         dims = radius * 2 + 1
         xy_shape = (dims, dims)
@@ -235,11 +244,11 @@ class Hyperspecter():
         )
         return fig
     
-    def surface_3d_graph(self, id, frequency, smoothing):
+    def surface_3d_graph(self, id, frequency, smoothing, intensity):
         #Dataframe
         id = int(id)
         frequency = float(frequency)
-        df = dh.aggregateAcquistion(id, frequencies=[frequency-5, frequency+5])
+        df = dh.aggregateAcquistion(id, frequencies=[frequency-5, frequency+5], maxIntensity=intensity)
 
         #Input: Dataframe with e.g. columns; 'x', 'y', '1005.43'
         array = df.columns[2:]
@@ -273,13 +282,15 @@ def dash_callbacks(app):
     @app.dash.callback(
         Output('volumetric-graph', 'figure'),
         Output('volumetric-alert', 'className'),
-        [Input('series-selector', 'value')])
-    def update_volumetric_graph(id):
+        [Input('series-selector', 'value'),
+        Input('series-intensity', 'value')],)
+    def update_volumetric_graph(id, intensity):
         if id == '':
             return fig, 'd-none'
         try:
-            volumetric_fig = app.volumetric_graph(id)
-        except:
+            volumetric_fig = app.volumetric_graph(id, intensity)
+        except Exception as ex:
+            print(ex)
             return fig, 'd-block'
         return volumetric_fig, 'd-none'
 
@@ -287,15 +298,17 @@ def dash_callbacks(app):
         Output('surface-3d-graph', 'figure'),
         Output('surface-alert', 'className'),
         [Input('surface-submit', 'n_clicks'),
-        Input('series-selector', 'value')],
-        [State('surface-frequency', 'value'),
-        State('surface-smoothing', 'value')])
-    def update_surface_graph(n_clicks, id, frequency, smoothing):
+        Input('series-selector', 'value'),
+        Input('surface-frequency', 'value'),
+        Input('surface-smoothing', 'value'),
+        Input('series-intensity', 'value')])
+    def update_surface_graph(n_clicks, id, frequency, smoothing, intensity):
         if id == '':
             return fig, 'd-none'
         try:
-            surface_fig = app.surface_3d_graph(id, frequency, smoothing)
-        except:
+            surface_fig = app.surface_3d_graph(id, frequency, smoothing, intensity)
+        except Exception as ex:
+            print(ex)
             return fig, 'd-block'
         return surface_fig, 'd-none'
     

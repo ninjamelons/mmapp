@@ -34,7 +34,7 @@ def getSeriesDataframe(id):
     return pd.read_csv(csv, index_col=False)
 
 #Can aggregate by None, Frequencies, Coordinate Range, Coordinate Range AND Frequencies
-def aggregateAcquistion(id, *, frequencies=None, coordRange=None):
+def aggregateAcquistion(id, *, frequencies=None, coordRange=None, maxIntensity=5000):
     #Get series dataframe
     df = getSeriesDataframe(id)
     radius = df['x'].max()
@@ -65,13 +65,17 @@ def aggregateAcquistion(id, *, frequencies=None, coordRange=None):
             (df['y'] >= range['rangeY'][0]) & (df['y'] <= range['rangeY'][1]))
     df = df.loc[mask]
 
-    #Mask dataframe to Frequency
+    #Mask dataframe to Frequency & Limit intensity anomalies
     df = pd.melt(df.iloc[:,1:], id_vars=['x', 'y'], var_name='frequency',
         value_name='intensity').sort_values(['x', 'y', 'frequency'])
+    
+    median = df.loc[df['intensity'] < maxIntensity, 'intensity'].median()
+    intensityMask = df['intensity'] > maxIntensity
+    df['intensity'] = df['intensity'].mask(intensityMask, median)
 
     df['frequency'] = pd.to_numeric(df['frequency'])
-    mask = ((df['frequency'] >= frequency[0]) & (df['frequency'] <= frequency[1]))
-    df = pd.pivot_table(df.loc[mask],values='intensity',index=['x','y'],columns='frequency').reset_index().reset_index(drop=True)
+    frequencyMask = ((df['frequency'] >= frequency[0]) & (df['frequency'] <= frequency[1]))
+    df = pd.pivot_table(df.loc[frequencyMask],values='intensity',index=['x','y'],columns='frequency').reset_index().reset_index(drop=True)
     
     #return dataframe
     return df
