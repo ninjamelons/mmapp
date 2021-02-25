@@ -1,7 +1,7 @@
 import plotly.graph_objects as go
+import plotly.express as px
 import dash
 import webview
-from threading import Thread
 
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
@@ -14,8 +14,6 @@ import scipy.ndimage
 
 import data_handler as dh
 
-FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
-
 def rearrange_df(df, nb_frames):
     z_arr = list()
     for i in range(nb_frames):
@@ -27,20 +25,18 @@ def rearrange_df(df, nb_frames):
     return z_arr
 
 class Hyperspecter():
-    def __init__(self):
+    def __init__(self, dash_gui):
         self.data = pd.DataFrame.from_dict(dh.getAllSeries()['series'])
         self.table_headers = self.data.iloc[:,np.r_[1:4, 8:9, 6:7]].rename(
             columns={'StartDatetime': 'Date'}).columns
         self.options = self.getDropdownOptions()
         self.title = 'title'
-
-        self.dash = dash.Dash(
-            external_stylesheets=[dbc.themes.BOOTSTRAP, FONT_AWESOME]
-        )
-        self.grid_layout()
+        
+        self.dash = dash_gui
+        self.layout = self.grid_layout()
     
     def grid_layout(self):
-        self.dash.layout = html.Div([
+        return html.Div([
             dbc.Row([
                 dbc.Col([
                     dbc.Card([
@@ -118,6 +114,14 @@ class Hyperspecter():
                                     ], size='lg', style={'marginTop': '1rem'}),
                                     dcc.Graph(id='surface-3d-graph'),
                                 ], lg=12, xl=6)
+                            ]),
+                            dbc.Row([
+                                dbc.Col([
+                                    dbc.Alert('X/Y coordinates may not exist on series',
+                                        id='frequency-line-alert', color='danger', className='d-none',
+                                        style={'marginTop': '1rem'}),
+                                    dcc.Graph(id='frequency-line-chart'),
+                                ],)
                             ])
                         ])
                     ])
@@ -247,6 +251,7 @@ class Hyperspecter():
     def surface_3d_graph(self, id, frequency, smoothing, intensity):
         #Dataframe
         id = int(id)
+        intensity = int(intensity)
         frequency = float(frequency)
         df = dh.aggregateAcquistion(id, frequencies=[frequency-5, frequency+5], maxIntensity=intensity)
 
@@ -274,87 +279,102 @@ class Hyperspecter():
                           width=600, height=600,
                           margin=dict(l=65, r=50, b=65, t=90))
         return fig
-
-def dash_callbacks(app):
-    #Fallback figure - Empty figure for default
-    fig = go.Figure(data=[go.Scatter(x=[], y=[])])
-
-    @app.dash.callback(
-        Output('volumetric-graph', 'figure'),
-        Output('volumetric-alert', 'className'),
-        [Input('series-selector', 'value'),
-        Input('series-intensity', 'value')],)
-    def update_volumetric_graph(id, intensity):
-        if id == '':
-            return fig, 'd-none'
-        try:
-            volumetric_fig = app.volumetric_graph(id, intensity)
-        except Exception as ex:
-            print(ex)
-            return fig, 'd-block'
-        return volumetric_fig, 'd-none'
-
-    @app.dash.callback(
-        Output('surface-3d-graph', 'figure'),
-        Output('surface-alert', 'className'),
-        [Input('surface-submit', 'n_clicks'),
-        Input('series-selector', 'value'),
-        Input('surface-frequency', 'value'),
-        Input('surface-smoothing', 'value'),
-        Input('series-intensity', 'value')])
-    def update_surface_graph(n_clicks, id, frequency, smoothing, intensity):
-        if id == '':
-            return fig, 'd-none'
-        try:
-            surface_fig = app.surface_3d_graph(id, frequency, smoothing, intensity)
-        except Exception as ex:
-            print(ex)
-            return fig, 'd-block'
-        return surface_fig, 'd-none'
     
-    @app.dash.callback(
-        Output('table', 'children'),
-        [Input('date-range', 'start_date'),
-        Input('date-range', 'end_date'),
-        Input('points-lower', 'value'),
-        Input('points-upper', 'value')])
-    def update_table_df(start_date, end_date, points_lower, points_upper):
-        if start_date == None and end_date == None and points_lower == None and points_upper == None:
-            return app.getSeriesTable(app.data)
-        df = pd.DataFrame.from_dict(dh.getSeriesRange([start_date, end_date], [points_lower, points_upper])['series'])
-        return app.getSeriesTable(df)
+    def frequency_line_chart(self, id, intensity):
+        #Dataframe
+        id = int(id)
+        intensity = int(intensity)
+        df = dh.aggregateAcquistion(id, maxIntensity=intensity)
 
-    @app.dash.callback(
-        [Output('date-range', 'start_date'),
-        Output('date-range', 'end_date')],
-        [Input('reset-date', 'n_clicks')])
-    def reset_date_range(nclick):
-        return None, None
-    
-    @app.dash.callback(
-        Output('volumetric-graph-click', 'children'),
-        [Input('volumetric-graph', 'clickData')],
-        [State('volumetric-graph', 'figure')])
-    def volumetric_onclick(clickData, fig):
-        trigger = dash.callback_context.triggered[0]["prop_id"]
-        if trigger == 'volumetric-graph.clickData':
-            return str(clickData['points'])
+        df = pd.melt(df, id_vars=['x', 'y'], var_name='frequency',
+            value_name='intensity').sort_values(['x', 'y', 'frequency'])
+        df['xy'] = df.x.astype(str) + ',' + df.y.astype(str)
 
-def start_webview():
-    app = Hyperspecter()
+        fig = px.line(df, x='frequency', y='intensity', color='xy')
+        return fig
 
-    dash_callbacks(app)
+    def dash_callbacks(self):
+        #Fallback figure - Empty figure for default
+        fig = go.Figure(data=[go.Scatter(x=[], y=[])])
 
-    window = webview.create_window('Raman Imaging', app.dash.server, width=1300, height=850)
-    webview.start()
+        @self.dash.callback(
+            Output('volumetric-graph', 'figure'),
+            Output('volumetric-alert', 'className'),
+            [Input('series-selector', 'value'),
+            Input('series-intensity', 'value')],)
+        def update_volumetric_graph(id, intensity):
+            if id == '':
+                return fig, 'd-none'
+            try:
+                volumetric_fig = self.volumetric_graph(id, intensity)
+            except Exception as ex:
+                print(ex)
+                return fig, 'd-block'
+            return volumetric_fig, 'd-none'
 
-def start_dash():
-    app = Hyperspecter()
+        @self.dash.callback(
+            Output('surface-3d-graph', 'figure'),
+            Output('surface-alert', 'className'),
+            [Input('surface-submit', 'n_clicks'),
+            Input('series-selector', 'value'),
+            Input('surface-frequency', 'value'),
+            Input('surface-smoothing', 'value'),
+            Input('series-intensity', 'value')])
+        def update_surface_graph(n_clicks, id, frequency, smoothing, intensity):
+            if id == '':
+                return fig, 'd-none'
+            try:
+                surface_fig = self.surface_3d_graph(id, frequency, smoothing, intensity)
+            except Exception as ex:
+                print(ex)
+                return fig, 'd-block'
+            return surface_fig, 'd-none'
 
-    dash_callbacks(app)
+        @self.dash.callback(
+            Output('frequency-line-chart', 'figure'),
+            Output('frequency-line-alert', 'className'),
+            [Input('series-selector', 'value'),
+            Input('series-intensity', 'value')])
+        def update_frequency_chart(id, intensity):
+            if id == '':
+                return fig, 'd-none'
+            try:
+                line_fig = self.frequency_line_chart(id, intensity)
+            except Exception as ex:
+                print(ex)
+                return fig, 'd-block'
+            return line_fig, 'd-none'
 
-    app.dash.run_server(debug=True, port=5501)
+        @self.dash.callback(
+            Output('table', 'children'),
+            [Input('date-range', 'start_date'),
+            Input('date-range', 'end_date'),
+            Input('points-lower', 'value'),
+            Input('points-upper', 'value')])
+        def update_table_df(start_date, end_date, points_lower, points_upper):
+            if start_date == None and end_date == None and points_lower == None and points_upper == None:
+                return self.getSeriesTable(self.data)
+            df = pd.DataFrame.from_dict(dh.getSeriesRange([start_date, end_date], [points_lower, points_upper])['series'])
+            return self.getSeriesTable(df)
 
+        @self.dash.callback(
+            [Output('date-range', 'start_date'),
+            Output('date-range', 'end_date')],
+            [Input('reset-date', 'n_clicks')])
+        def reset_date_range(nclick):
+            return None, None
+
+        @self.dash.callback(
+            Output('volumetric-graph-click', 'children'),
+            [Input('volumetric-graph', 'clickData')],
+            [State('volumetric-graph', 'figure')])
+        def volumetric_onclick(clickData, fig):
+            trigger = dash.callback_context.triggered[0]["prop_id"]
+            if trigger == 'volumetric-graph.clickData':
+                return str(clickData['points'])
+
+#Debug single page
 if __name__ == "__main__":
-    start_dash()
-    #start_webview()
+    app = Hyperspecter()
+    app.dash_callbacks()
+    app.dash.run_server(debug=True, port=5501)
