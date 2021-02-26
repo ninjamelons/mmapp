@@ -1,3 +1,4 @@
+#Import dash dependencies
 import dash
 import webview
 
@@ -6,6 +7,7 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
+#Import pages
 from hyperspecter import Hyperspecter
 
 FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
@@ -18,6 +20,10 @@ class GuiInit():
 
 base_layout = html.Div([
     dcc.Location(id='url', refresh=False),
+    dbc.NavbarSimple(children=[
+        dbc.NavItem(dbc.NavLink('Spectral Analysis', href='/')),
+        dbc.NavItem(dbc.NavLink('Machine Learning', href='/ml'))
+    ], id='navbar'),
     html.Div(id='page-content')
 ])
 
@@ -53,7 +59,7 @@ if __name__ == "__main__":
     
     #Append pages {'url': outerDiv}
     pages['default'] = specter.layout
-    pages['ml'] = html.Div()
+    pages['/ml'] = html.Div()
 
     #Navigation callback
     get_page(app.dash, pages)
