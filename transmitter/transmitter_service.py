@@ -13,11 +13,15 @@ import pandas as pd
 
 import logging, sys
 
-from mmcontrols import stage_lib
-from mmcontrols import position_lib
+try:
+    from transmitter.mmcontrols import stage_lib
+    from transmitter.mmcontrols import position_lib
+except:
+    from mmcontrols import stage_lib
+    from mmcontrols import position_lib
 
 stageDevice = 'XYStage'
-csvPath = '../csv/'
+csvPath = './csv/raw/'
 
 #Access row columns by name
 def dict_factory(cursor, row):
@@ -25,8 +29,11 @@ def dict_factory(cursor, row):
     for idx, col in enumerate(cursor.description):
         d[col[0]] = row[idx]
     return d
-db = sqlite3.connect('./raman_service.sqlite')
-db.row_factory = dict_factory
+
+def connect_db():
+    db = sqlite3.connect('./transmitter/raman_service.sqlite')
+    db.row_factory = dict_factory
+    return db
 
 api_tags = [
     {
@@ -42,7 +49,7 @@ app = FastAPI(
     title="Transmitter Service",
     description="""Receives requests from LabSpec to acquire spectroscopy data
          and move the microscope stage through micromanager""",
-    version="1.1.1",
+    version="1.1.2",
     openapi_tags=api_tags
 )
 
@@ -55,6 +62,7 @@ class SpectroscopySeries(BaseModel):
 #Create a new series & Return the series ID
 @app.post("/sequence/new-series", status_code=201, tags=["sequence"])
 async def newSeries(series: SpectroscopySeries):
+    db = connect_db()
     #Get current stage position == Series Origin
     try:
         stage = stage_lib.StageLib(stageDevice)
@@ -87,6 +95,8 @@ async def newSeries(series: SpectroscopySeries):
 #Update the filename for the last SeriesEntry entry
 @app.patch("/sequence/update-last-filename", status_code=200, tags=["sequence"])
 async def updateFilenameLastPos(seriesId: int, fileName: str):
+    db = connect_db()
+
     updateEntry = """UPDATE SeriesEntry SET FileName = (?)
         WHERE SeriesId in (SELECT SeriesId FROM SeriesEntry
         WHERE SeriesId = (?) ORDER BY InitDatetime DESC LIMIT 1)"""
@@ -105,6 +115,8 @@ async def updateFilenameLastPos(seriesId: int, fileName: str):
 
 @app.post("/sequence/post-sequence-file", status_code=200, tags=["sequence"])
 async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
+    db = connect_db()
+
     logging.debug(f'Uploaded file: {file}')
     try:
         contents = await file.read()
@@ -152,6 +164,8 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
 #Move the stage to the next position in the series
 @app.post("/sequence/move-stage-sequence", status_code=200, tags=["sequence"])
 async def moveStageSequence(seriesId: int):
+    db = connect_db()
+
     #Get accessed series & Current position
     selectSeries = """SELECT Series.Id, Series.Radius, Series.Interval, SeriesEntry.StageX, SeriesEntry.StageY
         FROM Series INNER JOIN SeriesEntry ON Series.Id = SeriesEntry.SeriesId
@@ -203,6 +217,8 @@ async def moveStageSequence(seriesId: int):
 #Move the stage to the next position in the series
 @app.patch("/sequence/update-series-end-datetime", status_code=200, tags=["sequence"])
 async def updateSeriesEndDatetime(seriesId: int):
+    db = connect_db()
+    
     updateSeries = """UPDATE Series SET
         EndDatetime = CURRENT_TIMESTAMP WHERE Id = (?)"""
     db.execute(updateSeries, [seriesId])
@@ -219,6 +235,8 @@ async def updateSeriesEndDatetime(seriesId: int):
 
 @app.post("/sequence/post-multiple-sequence-files", status_code=200, tags=["sequence"])
 async def postMultipleSequenceFile(seriesId: int, files: List[UploadFile] = File(...)):
+    db = connect_db()
+    
     for file in files:
         contents = await file.read()
         contents = contents.decode(errors='ignore').splitlines()
@@ -261,6 +279,8 @@ class Series(BaseModel):
 
 @app.post("/series/move-stage-origin-relative", status_code=200, tags=["series"])
 async def moveStageOriginRelative(series: Series):
+    db = connect_db()
+
     #Select series Origin, Interval
     #Calculate dx dy from origin (X * Interval), (Y * Interval)
     #Move stage relative to origin with calculated dxdy
@@ -268,12 +288,16 @@ async def moveStageOriginRelative(series: Series):
 
 @app.post("/series/move-stage-origin", status_code=200, tags=["series"])
 async def moveStageOrigin(seriesId: int):
+    db = connect_db()
+
     #Select series Origin
     #Move stage absolute to origin X,Y
     pass
 
 @app.get("/series/get-series-entries", status_code=200, tags=["series"])
 async def getSeriesEntries(seriesId: int):
+    db = connect_db()
+
     returnSeries = {}
     #Select series
     selectSeries = 'SELECT * FROM Series WHERE Id = (?)'
@@ -295,12 +319,16 @@ async def getSeriesEntries(seriesId: int):
 
 @app.get("/series/get-series", status_code=200, tags=['series'])
 async def getSeries(seriesId: int):
+    db = connect_db()
+
     selectSeries = 'SELECT * FROM Series WHERE Id = (?)'
     seriesTbl = db.execute(selectSeries, [seriesId]).fetchone()
     return seriesTbl
 
 @app.get("/series/get-all-series", status_code=200, tags=["series"])
 async def getAllSeries():
+    db = connect_db()
+
     returnSeries = {'series': []}
     #Select series
     selectSeries = 'SELECT *, ((Radius*2+1)*(Radius*2+1)) as NoPoints FROM Series'
@@ -315,6 +343,8 @@ async def getSeriesRange(sdate: date = date(2021, 1, 1),
                        edate: date = date.today(),
                        ptsLower: int = 1,
                        ptsUpper: int = 1000):
+    db = connect_db()
+
     returnSeries = {'series': []}
 
     edate = datetime(year=edate.year, month=edate.month, day=edate.day,
@@ -344,9 +374,13 @@ async def main():
     """
     return HTMLResponse(content=content)
 
+def init_rest_service():
+    uvicorn.run(app, host="0.0.0.0", port=5500, timeout_keep_alive=0)
+def cleanup_on_exit():
+    sys.exit()
 
 #Start server with uvicorn
 if __name__ == "__main__":
-    #uvicorn.run(app, host="0.0.0.0", port=5500, timeout_keep_alive=0)
+    #init_rest_service()
     logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
     uvicorn.run("transmitter_service:app", host="0.0.0.0", port=5500, reload=True, timeout_keep_alive=0, log_level="info")

@@ -8,7 +8,10 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
 #Import pages
-from hyperspecter import Hyperspecter
+try:
+    from transmitter.spectrohandler.hyperspecter import Hyperspecter
+except:
+    from hyperspecter import Hyperspecter
 
 FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
 class GuiInit():
@@ -40,14 +43,14 @@ def get_page(app, pages):
         if not page_found:
             return pages['default']
 
-def start_webview():
+def start_webview(app):
     window = webview.create_window('Raman Imaging', app.dash.server, width=1300, height=850)
     webview.start()
 
-def start_dash():
+def start_dash(app):
     app.dash.run_server(debug=True, port=5501)
 
-if __name__ == "__main__":
+def init_gui():
     #Init GUI
     app = GuiInit()
     pages = {}
@@ -64,9 +67,14 @@ if __name__ == "__main__":
     #Navigation callback
     get_page(app.dash, pages)
 
+    return app
+
+if __name__ == "__main__":
+    app = init_gui()
+
     #Start GUI/App
-    debug = False
+    debug = True
     if debug:
-        start_dash()
+        start_dash(app)
     else:
-        start_webview()
+        start_webview(app)

@@ -12,7 +12,10 @@ import numpy as np
 import pandas as pd
 import scipy.ndimage
 
-import data_handler as dh
+try:
+    import transmitter.spectrohandler.data_handler as dh
+except:
+    import data_handler as dh
 
 def rearrange_df(df, nb_frames):
     z_arr = list()
@@ -55,7 +58,13 @@ class Hyperspecter():
                                             dbc.InputGroupAddon('Max Intensity'),
                                             dbc.Input(type='number', id='series-intensity', value=5000,
                                                 style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                                        ], size='lg', style={'marginBottom': '1rem'})
+                                            html.P('Baseline Corrected: ', style={'marginLeft': '1rem'}),
+                                            dbc.Checkbox(id="series-corrected", className="form-check-input"),
+                                        ], size='lg', style={'marginBottom': '1rem'}),
+                                        dbc.InputGroup([
+                                            dbc.Button("Baseline Correct", id='correct-series',
+                                                style={'minWidth': '6rem', 'maxWidth': '8rem'}),
+                                        ], size='lg', style={'marginBottom': '1rem'}),
                                     ]),
                                     dbc.ListGroupItemHeading('Filter series'),
                                     dbc.InputGroup([
@@ -152,15 +161,18 @@ class Hyperspecter():
         dict_opt = df_opt.to_dict(orient='records')
         return dict_opt
 
-    def volumetric_graph(self, id, intensity):
+    def volumetric_graph(self, id, intensity, corrected):
         #Dataframe
-        df = dh.aggregateAcquistion(id, maxIntensity=intensity)
+        df = dh.aggregateAcquistion(id, maxIntensity=intensity, corrected=corrected)
+
         radius = df['x'].max()
         dims = radius * 2 + 1
         xy_shape = (dims, dims)
         nb_frames = df.iloc[:,2:].shape[1]
         max_intensity = df.iloc[:,2:].max(axis=1).max()
-        freqs = pd.melt(df.iloc[::xy_shape[0]*xy_shape[1],2:])['frequency'].values
+        df_melted = pd.melt(df.iloc[::xy_shape[0]*xy_shape[1],2:], 
+            var_name='frequency', value_name='intensity')
+        freqs = df_melted['frequency'].values
 
         #Multi Index
         df = df.set_index(['x','y'])
@@ -248,19 +260,19 @@ class Hyperspecter():
         )
         return fig
     
-    def surface_3d_graph(self, id, frequency, smoothing, intensity):
+    def surface_3d_graph(self, id, frequency, smoothing, intensity, corrected):
         #Dataframe
         id = int(id)
         intensity = int(intensity)
         frequency = float(frequency)
-        df = dh.aggregateAcquistion(id, frequencies=[frequency-5, frequency+5], maxIntensity=intensity)
+        df = dh.filterAcquisition(id, intensity=intensity, corrected=corrected)
 
         #Input: Dataframe with e.g. columns; 'x', 'y', '1005.43'
-        array = df.columns[2:]
+        array = df.columns[2:].astype('float64')
         idx = (np.abs(array - frequency)).argmin()
         nearestFreq = array[idx]
 
-        df = df.loc[:,['x','y',nearestFreq]]
+        df = df.loc[:,['x','y',str(nearestFreq)]]
 
         #Convert 3 column df to rows = x, columns = y, values = intensity
         df = df.pivot(index='x', columns='y', values=df.columns[len(df.columns)-1])
@@ -280,11 +292,11 @@ class Hyperspecter():
                           margin=dict(l=65, r=50, b=65, t=90))
         return fig
     
-    def frequency_line_chart(self, id, intensity):
+    def frequency_line_chart(self, id, intensity, corrected):
         #Dataframe
         id = int(id)
         intensity = int(intensity)
-        df = dh.aggregateAcquistion(id, maxIntensity=intensity)
+        df = dh.filterAcquisition(id, intensity=intensity, corrected=corrected)
 
         df = pd.melt(df, id_vars=['x', 'y'], var_name='frequency',
             value_name='intensity').sort_values(['x', 'y', 'frequency'])
@@ -308,12 +320,13 @@ class Hyperspecter():
             Output('volumetric-graph', 'figure'),
             Output('volumetric-alert', 'className'),
             [Input('series-selector', 'value'),
-            Input('series-intensity', 'value')],)
-        def update_volumetric_graph(id, intensity):
+            Input('series-intensity', 'value'),
+            Input('series-corrected', 'value')],)
+        def update_volumetric_graph(id, intensity, corrected):
             if id == '':
                 return fig, 'd-none'
             try:
-                volumetric_fig = self.volumetric_graph(id, intensity)
+                volumetric_fig = self.volumetric_graph(id, intensity, corrected)
             except Exception as ex:
                 print(ex)
                 return fig, 'd-block'
@@ -326,12 +339,13 @@ class Hyperspecter():
             Input('series-selector', 'value'),
             Input('surface-frequency', 'value'),
             Input('surface-smoothing', 'value'),
-            Input('series-intensity', 'value')])
-        def update_surface_graph(n_clicks, id, frequency, smoothing, intensity):
+            Input('series-intensity', 'value'),
+            Input('series-corrected', 'value')])
+        def update_surface_graph(n_clicks, id, frequency, smoothing, intensity, corrected):
             if id == '':
                 return fig, 'd-none'
             try:
-                surface_fig = self.surface_3d_graph(id, frequency, smoothing, intensity)
+                surface_fig = self.surface_3d_graph(id, frequency, smoothing, intensity, corrected)
             except Exception as ex:
                 print(ex)
                 return fig, 'd-block'
@@ -341,12 +355,13 @@ class Hyperspecter():
             Output('frequency-line-chart', 'figure'),
             Output('frequency-line-alert', 'className'),
             [Input('series-selector', 'value'),
-            Input('series-intensity', 'value')])
-        def update_frequency_chart(id, intensity):
+            Input('series-intensity', 'value'),
+            Input('series-corrected', 'value')])
+        def update_frequency_chart(id, intensity, corrected):
             if id == '':
                 return fig, 'd-none'
             try:
-                line_fig = self.frequency_line_chart(id, intensity)
+                line_fig = self.frequency_line_chart(id, intensity, corrected)
             except Exception as ex:
                 print(ex)
                 return fig, 'd-block'
