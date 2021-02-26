@@ -1,5 +1,5 @@
 import plotly.graph_objects as go
-import plotly.express as px
+#import plotly.express as px
 import dash
 import webview
 
@@ -290,7 +290,14 @@ class Hyperspecter():
             value_name='intensity').sort_values(['x', 'y', 'frequency'])
         df['xy'] = df.x.astype(str) + ',' + df.y.astype(str)
 
-        fig = px.line(df, x='frequency', y='intensity', color='xy')
+        group = df.groupby('xy')
+        frequencies = group.frequency.apply(list)
+        intensities = group.intensity.apply(list)
+
+        fig = go.Figure()
+        for group, values in frequencies.items():
+            fig.add_trace(go.Scatter(x=values, y=intensities[group], mode='lines', name=group))
+
         return fig
 
     def dash_callbacks(self):

@@ -21,7 +21,7 @@ class GuiInit():
 base_layout = html.Div([
     dcc.Location(id='url', refresh=False),
     dbc.NavbarSimple(children=[
-        dbc.NavItem(dbc.NavLink('Spectral Analysis', href='/')),
+        dbc.NavItem(dbc.NavLink('Imaging', href='/')),
         dbc.NavItem(dbc.NavLink('Machine Learning', href='/ml'))
     ], id='navbar'),
     html.Div(id='page-content')
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     get_page(app.dash, pages)
 
     #Start GUI/App
-    debug = True
+    debug = False
     if debug:
         start_dash()
     else:
