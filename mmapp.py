@@ -2,7 +2,7 @@
 import time
 from threading import Thread
 
-from transmitter.transmitter_service import init_rest_service, cleanup_on_exit
+from transmitter.transmitter_service import init_rest_service
 from transmitter.spectrohandler.gui_init import init_gui, start_webview
 
 def run_service():
