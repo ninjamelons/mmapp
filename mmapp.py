@@ -1,15 +1,9 @@
 # Main entry point for app
 import time
 from threading import Thread
-import atexit
 
 from transmitter.transmitter_service import init_rest_service, cleanup_on_exit
 from transmitter.spectrohandler.gui_init import init_gui, start_webview
-
-def exit_handler():
-    cleanup_on_exit()
-
-atexit.register(exit_handler)
 
 def run_service():
     init_rest_service()
@@ -26,5 +20,5 @@ if __name__ == "__main__":
         time.sleep(2)
 
         run_gui()
-    finally:
-        exit_handler()
+    except Exception as ex:
+        print(ex)
