@@ -82,7 +82,7 @@ def filterAcquisition(id, *, corrected=False, coordRange=None, frequencies=None,
     #If intensity or frequencies != default, then melt df
     intfreq_default = intensity < 5000 or frequencies != None
     if intfreq_default:
-        df = pd.melt(df.iloc[:,1:], id_vars=['x', 'y'], var_name='frequency',
+        df = pd.melt(df, id_vars=['x', 'y'], var_name='frequency',
             value_name='intensity').sort_values(['x', 'y', 'frequency'])
         df['frequency'] = pd.to_numeric(df['frequency'])
     
