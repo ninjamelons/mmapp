@@ -44,7 +44,6 @@ def baselineCorrection(id):
     df = getSeriesDataframe(id, False)
     df.iloc[:,2:] = df.iloc[:,2:].apply(lambda x: BaselineRemoval(x).ZhangFit(), axis=1, result_type='expand')
     df.to_csv(f'./csv/corrected/{id}.csv', index=False)
-    return df
 
 def filterCoordinates(df, coordinates):
     #Mask dataframe to XY

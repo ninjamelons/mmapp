@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import FastAPI, Header, HTTPException, File, UploadFile
+from fastapi import FastAPI, Header, HTTPException, File, UploadFile, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import uvicorn
@@ -16,9 +16,11 @@ import logging, sys
 try:
     from transmitter.mmcontrols import stage_lib
     from transmitter.mmcontrols import position_lib
+    from transmitter.spectrohandler import data_handler as dh
 except:
     from mmcontrols import stage_lib
     from mmcontrols import position_lib
+    from spectrohandler import data_handler as dh
 
 stageDevice = 'XYStage'
 csvPath = './csv/raw/'
@@ -216,7 +218,7 @@ async def moveStageSequence(seriesId: int):
 
 #Move the stage to the next position in the series
 @app.patch("/sequence/update-series-end-datetime", status_code=200, tags=["sequence"])
-async def updateSeriesEndDatetime(seriesId: int):
+async def updateSeriesEndDatetime(seriesId: int, background_tasks: BackgroundTasks):
     db = connect_db()
     
     updateSeries = """UPDATE Series SET
@@ -229,6 +231,8 @@ async def updateSeriesEndDatetime(seriesId: int):
 
     if seriesTbl == None:
         raise HTTPException(status_code=404, detail='Series does not exist')
+
+    background_tasks.add_task(dh.baselineCorrection, seriesId)
 
     return {'seriesId': seriesTbl['Id'],
         'EndDatetime': seriesTbl['EndDatetime']}
@@ -376,8 +380,6 @@ async def main():
 
 def init_rest_service():
     uvicorn.run(app, host="0.0.0.0", port=5500, timeout_keep_alive=0)
-def cleanup_on_exit():
-    sys.exit()
 
 #Start server with uvicorn
 if __name__ == "__main__":
