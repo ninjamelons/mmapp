@@ -272,7 +272,7 @@ class Hyperspecter():
         idx = (np.abs(array - frequency)).argmin()
         nearestFreq = array[idx]
 
-        df = df.loc[:,['x','y',str(nearestFreq)]]
+        df = df.loc[:,['x','y',nearestFreq]]
 
         #Convert 3 column df to rows = x, columns = y, values = intensity
         df = df.pivot(index='x', columns='y', values=df.columns[len(df.columns)-1])
@@ -317,11 +317,11 @@ class Hyperspecter():
         fig = go.Figure(data=[go.Scatter(x=[], y=[])])
 
         @self.dash.callback(
-            Output('volumetric-graph', 'figure'),
-            Output('volumetric-alert', 'className'),
+            [Output('volumetric-graph', 'figure'),
+            Output('volumetric-alert', 'className')],
             [Input('series-selector', 'value'),
             Input('series-intensity', 'value'),
-            Input('series-corrected', 'value')],)
+            Input('series-corrected', 'value')])
         def update_volumetric_graph(id, intensity, corrected):
             if id == '':
                 return fig, 'd-none'
@@ -333,8 +333,8 @@ class Hyperspecter():
             return volumetric_fig, 'd-none'
 
         @self.dash.callback(
-            Output('surface-3d-graph', 'figure'),
-            Output('surface-alert', 'className'),
+            [Output('surface-3d-graph', 'figure'),
+            Output('surface-alert', 'className')],
             [Input('surface-submit', 'n_clicks'),
             Input('series-selector', 'value'),
             Input('surface-frequency', 'value'),
@@ -352,8 +352,8 @@ class Hyperspecter():
             return surface_fig, 'd-none'
 
         @self.dash.callback(
-            Output('frequency-line-chart', 'figure'),
-            Output('frequency-line-alert', 'className'),
+            [Output('frequency-line-chart', 'figure'),
+            Output('frequency-line-alert', 'className')],
             [Input('series-selector', 'value'),
             Input('series-intensity', 'value'),
             Input('series-corrected', 'value')])
