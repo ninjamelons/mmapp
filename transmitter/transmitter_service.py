@@ -13,14 +13,9 @@ import pandas as pd
 
 import logging, sys
 
-try:
-    from transmitter.mmcontrols import stage_lib
-    from transmitter.mmcontrols import position_lib
-    from transmitter.spectrohandler import data_handler as dh
-except:
-    from mmcontrols import stage_lib
-    from mmcontrols import position_lib
-    from spectrohandler import data_handler as dh
+from .mmcontrols import stage_lib
+from .mmcontrols import position_lib
+from .spectrohandler import data_handler as dh
 
 stageDevice = 'XYStage'
 csvPath = './csv/raw/'

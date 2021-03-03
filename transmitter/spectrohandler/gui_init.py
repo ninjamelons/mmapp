@@ -7,11 +7,8 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
-#Import pages
-try:
-    from transmitter.spectrohandler.hyperspecter import Hyperspecter
-except:
-    from hyperspecter import Hyperspecter
+#import pages
+from .hyperspecter import Hyperspecter
 
 FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
 class GuiInit():

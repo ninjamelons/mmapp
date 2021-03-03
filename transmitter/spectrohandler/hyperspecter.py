@@ -12,10 +12,7 @@ import numpy as np
 import pandas as pd
 #import scipy.ndimage
 
-try:
-    import transmitter.spectrohandler.data_handler as dh
-except:
-    import data_handler as dh
+from . import data_handler as dh
 
 def rearrange_df(df, nb_frames):
     z_arr = list()
