@@ -10,7 +10,7 @@ from dash.dependencies import Input, Output, State
 
 import numpy as np
 import pandas as pd
-import scipy.ndimage
+#import scipy.ndimage
 
 try:
     import transmitter.spectrohandler.data_handler as dh
@@ -163,14 +163,14 @@ class Hyperspecter():
 
     def volumetric_graph(self, id, intensity, corrected):
         #Dataframe
-        df = dh.aggregateAcquistion(id, maxIntensity=intensity, corrected=corrected)
+        df = dh.filterAcquisition(id, intensity=intensity, corrected=corrected)
 
         radius = df['x'].max()
         dims = radius * 2 + 1
         xy_shape = (dims, dims)
         nb_frames = df.iloc[:,2:].shape[1]
         max_intensity = df.iloc[:,2:].max(axis=1).max()
-        df_melted = pd.melt(df.iloc[::xy_shape[0]*xy_shape[1],2:], 
+        df_melted = pd.melt(df.iloc[::xy_shape[0]*xy_shape[1],2:],
             var_name='frequency', value_name='intensity')
         freqs = df_melted['frequency'].values
 
@@ -272,6 +272,9 @@ class Hyperspecter():
         idx = (np.abs(array - frequency)).argmin()
         nearestFreq = array[idx]
 
+        #If filterAcquistion filters by intensity the
+        # melted df returns float type columns,
+        # otherwise columns remain as strings - Should fix this
         df = df.loc[:,['x','y',nearestFreq]]
 
         #Convert 3 column df to rows = x, columns = y, values = intensity
@@ -283,8 +286,8 @@ class Hyperspecter():
         x, y = np.linspace(sh_0, -1*sh_0, sh_0), np.linspace(-1*sh_1, sh_1, sh_1)
 
         #Smooth z-values
-        sigma = [smoothing, smoothing]
-        z = scipy.ndimage.filters.gaussian_filter(z, sigma)
+        #sigma = [smoothing, smoothing]
+        #z = scipy.ndimage.filters.gaussian_filter(z, sigma)
         
         fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
         fig.update_layout(title=nearestFreq, autosize=False,
@@ -391,9 +394,12 @@ class Hyperspecter():
             [Input('volumetric-graph', 'clickData')],
             [State('volumetric-graph', 'figure')])
         def volumetric_onclick(clickData, fig):
-            trigger = dash.callback_context.triggered[0]["prop_id"]
-            if trigger == 'volumetric-graph.clickData':
-                return str(clickData['points'])
+            try:
+                trigger = dash.callback_context.triggered[0]["prop_id"]
+                if trigger == 'volumetric-graph.clickData':
+                    return str(clickData['points'])
+            except:
+                pass
 
 #Debug single page
 if __name__ == "__main__":
