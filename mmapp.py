@@ -1,7 +1,3 @@
-# Main entry point for app
-import time
-from threading import Thread
-
 #Monkey patch flask-compress
 #*********************************************#
 import sys
@@ -28,8 +24,12 @@ def _get_distribution(dist):
 pkg_resources.get_distribution = _get_distribution
 #**********************************************#
 
+# Main entry point for app
+import time
+from threading import Thread
+
 from transmitter.transmitter_service import init_rest_service
-from transmitter.spectrohandler.gui_init import init_gui, start_webview
+from transmitter.spectrohandler.gui_init import init_gui, start_webview, start_dash
 
 def run_service():
     init_rest_service()
@@ -37,7 +37,12 @@ def run_service():
 
 def run_gui():
     app = init_gui()
-    start_webview(app)
+
+    debug = False
+    if debug:
+        start_dash(app)
+    else:
+        start_webview(app)
 
 if __name__ == "__main__":
     try:

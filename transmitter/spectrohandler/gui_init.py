@@ -8,7 +8,10 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
 #import pages
-from .hyperspecter import Hyperspecter
+try:
+    from .hyperspecter import Hyperspecter
+except:
+    from hyperspecter import Hyperspecter
 
 FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
 class GuiInit():

@@ -34,16 +34,16 @@ def getSeriesAtId(id):
 
 def getSeriesDataframe(id, corrected):
     csv = ''
-    if corrected:
-        csv = './csv/corrected/{}.csv'.format(id)
-    else:
+    if corrected == 1:
         csv = './csv/raw/{}.csv'.format(id)
+    elif corrected == 2:
+        csv = './csv/corrected/{}.csv'.format(id)
     return pd.read_csv(csv, index_col=False)
 
 def baselineCorrection(id):
-    df = getSeriesDataframe(id, False)
-    df.iloc[:,2:] = df.iloc[:,2:].apply(lambda x: BaselineRemoval(x).ZhangFit(), axis=1, result_type='expand')
-    df.to_csv(f'./csv/corrected/{id}.csv', index=False)
+    df = getSeriesDataframe(id, 1)
+    df.iloc[:,3:] = df.iloc[:,3:].apply(lambda x: BaselineRemoval(x).ZhangFit(), axis=1, result_type='expand')
+    df.round(3).to_csv(f'./csv/corrected/{id}.csv', index=False)
 
 def filterCoordinates(df, coordinates):
     #Mask dataframe to XY
@@ -64,7 +64,7 @@ def filterIntensity(df_melted, intensity):
     df_melted['intensity'] = df_melted['intensity'].mask(intensityMask, median)
     return df_melted
 
-def filterAcquisition(id, *, corrected=False, coordRange=None, frequencies=None, intensity=5000):
+def filterAcquisition(id, *, corrected=1, coordRange=None, frequencies=None, intensity=5000):
     #Get series dataframe
     df = getSeriesDataframe(id, corrected)
     df = df.drop(['id'], axis=1, errors='ignore')

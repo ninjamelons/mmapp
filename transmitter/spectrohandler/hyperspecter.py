@@ -12,7 +12,10 @@ import numpy as np
 import pandas as pd
 #import scipy.ndimage
 
-from . import data_handler as dh
+try:
+    from . import data_handler as dh
+except:
+    import data_handler as dh
 
 def rearrange_df(df, nb_frames):
     z_arr = list()
@@ -27,8 +30,11 @@ def rearrange_df(df, nb_frames):
 class Hyperspecter():
     def __init__(self, dash_gui):
         self.data = pd.DataFrame.from_dict(dh.getAllSeries()['series'])
-        self.table_headers = self.data.iloc[:,np.r_[1:4, 8:9, 6:7]].rename(
-            columns={'StartDatetime': 'Date'}).columns
+        try:
+            self.table_headers = self.data.iloc[:,np.r_[1:4, 8:9, 6:7]].rename(
+                columns={'StartDatetime': 'Date'}).columns
+        except:
+            self.table_headers = self.data
         self.options = self.getDropdownOptions()
         self.title = 'title'
         
@@ -55,13 +61,27 @@ class Hyperspecter():
                                             dbc.InputGroupAddon('Max Intensity'),
                                             dbc.Input(type='number', id='series-intensity', value=5000,
                                                 style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                                            html.P('Baseline Corrected: ', style={'marginLeft': '1rem'}),
-                                            dbc.Checkbox(id="series-corrected", className="form-check-input"),
-                                        ], size='lg', style={'marginBottom': '1rem'}),
+                                        ], style={'marginBottom': '1rem'}),
+                                        dbc.InputGroup([
+                                            dbc.InputGroupAddon('Baseline Correction', className="mr-2 mb-2"),
+                                            dbc.RadioItems(
+                                                options=[
+                                                    {"label": "Raw Data", "value": 1},
+                                                    {"label": "Zhang fit", "value": 2},
+                                                ],
+                                                value=1,
+                                                id="series-corrected",
+                                                inline=True,
+                                                style={'marginTop': '0.5rem'}
+                                            ),
+                                        ]),
                                         dbc.InputGroup([
                                             dbc.Button("Baseline Correct", id='correct-series',
-                                                style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                                        ], size='lg', style={'marginBottom': '1rem'}),
+                                                style={'minWidth': '6rem', 'maxWidth': '12rem'}),
+                                                dbc.Alert("Applied Zhang Fit correction", color="success",
+                                                    is_open=False, dismissable=True, id='correction-alert',
+                                                    style={'margin': '0'})
+                                        ], style={'marginBottom': '1rem'}),
                                     ]),
                                     dbc.ListGroupItemHeading('Filter series'),
                                     dbc.InputGroup([
@@ -70,16 +90,16 @@ class Hyperspecter():
                                         dbc.Button(html.I(className='fas fa-times'),
                                             id='reset-date',
                                             style={'height': '3rem', 'width': '3rem', 'marginLeft': '0.5rem'})
-                                    ], size='lg'),
+                                    ], size='md'),
                                     dbc.InputGroup([
                                         dbc.InputGroupAddon('No. Points'),
                                         dbc.Input(type='number', id='points-lower',
                                             style={'minWidth': '6rem', 'maxWidth': '8rem'}),
                                         dbc.Input(type='number', id='points-upper',
                                             style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                                    ], size='lg'),
+                                    ]),
                                     dbc.InputGroup([
-                                    ], size='lg', className='mb-2'),
+                                    ], className='mb-2'),
                                 ], md=6, lg=5,),
                                 dbc.Col([
                                     dbc.Table(id='table', bordered=True,
@@ -140,7 +160,7 @@ class Hyperspecter():
             df = df.iloc[:,np.r_[1:4, 8:9, 6:7]]
         except Exception as ex:
             print(ex)
-
+    
         table_header = [
             html.Thead(html.Tr([html.Th(col) for col in self.table_headers]))
         ]
@@ -153,9 +173,12 @@ class Hyperspecter():
         return table_header+table_body
 
     def getDropdownOptions(self):
-        df_opt = self.data.loc[:, ['Id', 'Title']]
-        df_opt.rename(columns={'Id': 'value', 'Title': 'label'}, inplace=True)
-        dict_opt = df_opt.to_dict(orient='records')
+        try:
+            df_opt = self.data.loc[:, ['Id', 'Title']]
+            df_opt.rename(columns={'Id': 'value', 'Title': 'label'}, inplace=True)
+            dict_opt = df_opt.to_dict(orient='records')
+        except:
+            dict_opt = []
         return dict_opt
 
     def volumetric_graph(self, id, intensity, corrected):
@@ -350,6 +373,22 @@ class Hyperspecter():
                 print(ex)
                 return fig, 'd-block'
             return surface_fig, 'd-none'
+
+        @self.dash.callback(
+            [Output('correction-alert', 'children'),
+            Output('correction-alert', 'color'),
+            Output('correction-alert', 'is_open'),],
+            [Input('correct-series', 'n_clicks')],
+            [State('series-selector', 'value')])
+        def correct_baseline(n_clicks, id):
+            try:
+                trigger = dash.callback_context.triggered[0]["prop_id"]
+                if trigger == 'correct-series.n_clicks':
+                    dh.baselineCorrection(id)
+                    return "Applied Zhang Fit correction", "success", True
+            except:
+                return "None", "warning", False
+            return "None", "warning", False
 
         @self.dash.callback(
             [Output('frequency-line-chart', 'figure'),
