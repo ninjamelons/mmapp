@@ -32,6 +32,11 @@ def getSeriesRange(dateRange, pointsRange):
 def getSeriesAtId(id):
     return requests.get(transmitterUrl + '/series/get-series?seriesId={}'.format(id)).json()
 
+def getLatestSeries():
+    allSeries = getAllSeries['series']
+    latestSeries = allSeries[len(allSeries) - 1]
+    return latestSeries
+
 def getSeriesDataframe(id, corrected):
     csv = ''
     if corrected == 1:
