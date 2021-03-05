@@ -18,6 +18,8 @@ CREATE TABLE [SeriesEntry] (
     [SeriesId] INTEGER NOT NULL,
     [StageX] INTEGER NOT NULL,
     [StageY] INTEGER NOT NULL,
+    [PosX] INTEGER NOT NULL,
+    [PosY] INTEGER NOT NULL,
     [PointNo] INTEGER DEFAULT 0,
     [FileName] TEXT DEFAULT '',
     [InitDatetime] TEXT DEFAULT CURRENT_TIMESTAMP,

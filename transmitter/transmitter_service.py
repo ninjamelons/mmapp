@@ -76,8 +76,8 @@ async def newSeries(series: SpectroscopySeries):
     insertSeries = 'INSERT INTO Series (Title, Radius, Interval, OriginX, OriginY) VALUES (?,?,?,?,?)'
     insertId = db.execute(insertSeries, [series.Title, series.Radius, series.Interval, xyPos.x, xyPos.y]).lastrowid
     #Create Origin SeriesEntry
-    insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PointNo) VALUES (?,?,?,?)'
-    db.execute(insertOrigin, [insertId, 0, 0, 0])
+    insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?)'
+    db.execute(insertOrigin, [insertId, 0, 0, xyPos.x, xyPos.y, 0])
     db.commit()
 
     final = False
@@ -189,17 +189,24 @@ async def moveStageSequence(seriesId: int):
             raise HTTPException(status_code=403, detail='Stage at last position already')
         dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
 
+        #Get the next position's absolute micrometer value
+        expectedPosAbsolute = [nextPos[0] * interval, nextPos[1] * interval]
+
         #Move stage next position
         try:
             stage = stage_lib.StageLib(stageDevice)
             stage.moveStageRelative(dxdy, interval)
             stage.waitForDevice(stageDevice)
+            xyPos = stage.getCurrentPosition()
         except:
             raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
 
+        print(f"""Stage Position: [{xyPos[0]},{xyPos[1]}];\n
+            Expected Position: [{expectedPosAbsolute[0]},{expectedPosAbsolute[1]}]""")
+
         #Insert new SeriesEntry
-        insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PointNo) VALUES (?,?,?,?)'
-        db.execute(insertOrigin, [seriesId, nextPos[0], nextPos[1], nextPos[2]])
+        insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?)'
+        db.execute(insertOrigin, [seriesId, nextPos[0], nextPos[1], xyPos.x, xyPos.y, nextPos[2]])
         db.commit()
 
         returnSeries = {
@@ -207,7 +214,9 @@ async def moveStageSequence(seriesId: int):
             "final": nextPos[3],
             "stageX": nextPos[0],
             "stageY": nextPos[1],
-            "pointNo": nextPos[2]
+            "posX": xyPos.x,
+            "posY": xyPos.y,
+            "pointNo": nextPos[2],
         }
 
         logging.debug(f'Move stage: [X:{nextPos[0]},Y:{nextPos[1]}]; Points:{nextPos[2]}/{noPoints}')
