@@ -7,6 +7,7 @@ import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 
 import numpy as np
 import pandas as pd
@@ -29,17 +30,19 @@ def rearrange_df(df, nb_frames):
 
 class Hyperspecter():
     def __init__(self, dash_gui):
+        self.reload()
+
+        self.dash = dash_gui
+        self.layout = self.grid_layout()
+    
+    def reload(self):
         self.data = pd.DataFrame.from_dict(dh.getAllSeries()['series'])
         try:
             self.table_headers = self.data.iloc[:,np.r_[1:4, 8:9, 6:7]].rename(
                 columns={'StartDatetime': 'Date'}).columns
         except:
             self.table_headers = self.data
-        self.options = self.getDropdownOptions()
         self.title = 'title'
-        
-        self.dash = dash_gui
-        self.layout = self.grid_layout()
     
     def grid_layout(self):
         return html.Div([
@@ -54,9 +57,12 @@ class Hyperspecter():
                                 dbc.Col([
                                     dbc.ListGroup([
                                         dbc.ListGroupItemHeading('Select series'),
-                                        dcc.Dropdown(id='series-selector', options=self.options,
-                                            value='', placeholder='Enter series title',
-                                            style={'marginBottom': '0.5rem'}),
+                                        dbc.InputGroup([
+                                            dcc.Dropdown(id='series-selector', options=[],
+                                                value='', placeholder='Enter series title',
+                                                style={'marginBottom': '0.5rem', 'minWidth': '80%'}),
+                                            dbc.Button('Refresh', id='refresh-selector'),
+                                        ]),
                                         dbc.InputGroup([
                                             dbc.InputGroupAddon('Max Intensity'),
                                             dbc.Input(type='number', id='series-intensity', value=5000,
@@ -104,7 +110,7 @@ class Hyperspecter():
                                 dbc.Col([
                                     dbc.Table(id='table', bordered=True,
                                         style={'textAlign': 'center'})
-                                ], md=6, lg=7)
+                                ], md=6, lg=7, style={'maxHeight': '30rem', 'overflowY': 'scroll'})
                             ])
                         ])
                     ])
@@ -411,12 +417,29 @@ class Hyperspecter():
             [Input('date-range', 'start_date'),
             Input('date-range', 'end_date'),
             Input('points-lower', 'value'),
-            Input('points-upper', 'value')])
-        def update_table_df(start_date, end_date, points_lower, points_upper):
+            Input('points-upper', 'value'),
+            Input('refresh-selector', 'n_clicks')])
+        def update_table_df(start_date, end_date, points_lower, points_upper, n_clicks):
+            returnDf = None
             if start_date == None and end_date == None and points_lower == None and points_upper == None:
-                return self.getSeriesTable(self.data)
-            df = pd.DataFrame.from_dict(dh.getSeriesRange([start_date, end_date], [points_lower, points_upper])['series'])
-            return self.getSeriesTable(df)
+                returnDf = pd.DataFrame.from_dict(dh.getAllSeries()['series'])
+            else:
+                returnDf = pd.DataFrame.from_dict(dh.getSeriesRange([start_date, end_date], [points_lower, points_upper])['series'])
+            self.data = returnDf
+            return self.getSeriesTable(returnDf)
+        
+        @self.dash.callback(
+            Output('series-selector', 'options'),
+            [Input('series-selector', 'search_value')])
+        def update_series_selector(search_value):
+            if not search_value:
+                raise PreventUpdate
+            options = self.getDropdownOptions()
+            retOptions = []
+            for o in options:
+                if search_value in o["label"]:
+                    retOptions.append(o)
+            return retOptions
 
         @self.dash.callback(
             [Output('date-range', 'start_date'),

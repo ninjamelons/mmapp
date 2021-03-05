@@ -10,8 +10,10 @@ from dash.dependencies import Input, Output, State
 #import pages
 try:
     from .hyperspecter import Hyperspecter
+    from .mlearning import MachineLearning
 except:
     from hyperspecter import Hyperspecter
+    from mlearning import MachineLearning
 
 FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
 class GuiInit():
@@ -22,7 +24,7 @@ class GuiInit():
         )
 
 base_layout = html.Div([
-    dcc.Location(id='url', refresh=False),
+    dcc.Location(id='url', refresh=True),
     dbc.NavbarSimple(children=[
         dbc.NavItem(dbc.NavLink('Imaging', href='/')),
         dbc.NavItem(dbc.NavLink('Machine Learning', href='/ml'))
@@ -36,12 +38,13 @@ def get_page(app, pages):
         [Input('url', 'pathname')])
     def display_page(pathname):
         page_found = False
-        for page_url, page_layout in pages.items():
+        for page_url, page in pages.items():
             if pathname == page_url:
                 page_found = True
-                return page_layout
+                page.reload()
+                return page.layout
         if not page_found:
-            return pages['default']
+            return pages['default'].layout
 
 def start_webview(app):
     window = webview.create_window('Raman Imaging', app.dash.server, width=1300, height=850)
@@ -59,10 +62,13 @@ def init_gui():
     #Init pages & callbacks
     specter = Hyperspecter(app.dash)
     specter.dash_callbacks()
+
+    ml_page = MachineLearning(app.dash)
+    ml_page.dash_callbacks()
     
     #Append pages {'url': outerDiv}
-    pages['default'] = specter.layout
-    pages['/ml'] = html.Div()
+    pages['default'] = specter
+    pages['/ml'] = ml_page
 
     #Navigation callback
     get_page(app.dash, pages)
