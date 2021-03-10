@@ -1,0 +1,15 @@
+wheel
+fastapi
+pydantic
+uvicorn
+requests
+python-multipart
+numpy
+pandas
+BaselineRemoval
+pycromanager
+dash
+dash-core-components
+dash-html-components
+dash-bootstrap-components
+pywebview
