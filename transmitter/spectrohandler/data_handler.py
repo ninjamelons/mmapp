@@ -33,9 +33,20 @@ def getSeriesAtId(id):
     return requests.get(transmitterUrl + '/series/get-series?seriesId={}'.format(id)).json()
 
 def getLatestSeries():
-    allSeries = getAllSeries['series']
-    latestSeries = allSeries[len(allSeries) - 1]
+    allSeries = getAllSeries()['series']
+    latestSeries = {}
+    if len(allSeries) > 0:
+        latestSeries = allSeries[len(allSeries) - 1]
     return latestSeries
+
+def getLatestEntry(id, lastDate):
+    return requests.get(transmitterUrl +
+        '/series/get-series-entries-latest?seriesId={}&lastDate={}'
+        .format(id, lastDate)).json()
+
+def getSeriesEntries(id):
+    return requests.get(transmitterUrl + 
+        '/series/get-series-entries?seriesId={}'.format(id)).json()
 
 def getSeriesDataframe(id, corrected):
     csv = ''

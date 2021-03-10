@@ -11,9 +11,11 @@ from dash.dependencies import Input, Output, State
 try:
     from .hyperspecter import Hyperspecter
     from .mlearning import MachineLearning
+    from .scanning import Scanning
 except:
     from hyperspecter import Hyperspecter
     from mlearning import MachineLearning
+    from scanning import Scanning
 
 FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
 class GuiInit():
@@ -26,6 +28,7 @@ class GuiInit():
 base_layout = html.Div([
     dcc.Location(id='url', refresh=True),
     dbc.NavbarSimple(children=[
+        dbc.NavItem(dbc.NavLink('Scanning', href='/scan')),
         dbc.NavItem(dbc.NavLink('Imaging', href='/')),
         dbc.NavItem(dbc.NavLink('Machine Learning', href='/ml'))
     ], id='navbar'),
@@ -65,10 +68,14 @@ def init_gui():
 
     ml_page = MachineLearning(app.dash)
     ml_page.dash_callbacks()
+
+    scan_page = Scanning(app.dash)
+    scan_page.dash_callbacks()
     
     #Append pages {'url': outerDiv}
     pages['default'] = specter
     pages['/ml'] = ml_page
+    pages['/scan'] = scan_page
 
     #Navigation callback
     get_page(app.dash, pages)

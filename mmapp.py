@@ -38,7 +38,7 @@ def run_service():
 def run_gui():
     app = init_gui()
 
-    debug = False
+    debug = True
     if debug:
         start_dash(app)
     else:

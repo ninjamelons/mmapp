@@ -330,6 +330,23 @@ async def getSeriesEntries(seriesId: int):
 
     return returnSeries
 
+@app.get("/series/get-series-entries-latest", status_code=200, tags=["series"])
+async def getSeriesEntriesLatest(seriesId: int, lastDate: datetime):
+    db = connect_db()
+
+    selectEntry = """SELECT * FROM SeriesEntry WHERE Id = (?) AND InitDatetime > (?)
+        ORDER BY InitDatetime DESC"""
+    entryTbl = db.execute(selectEntry, [seriesId, lastDate]).fetchall()
+
+    if entryTbl == None:
+        raise HTTPException(status_code=404, detail='Series does not exist')
+
+    entries = []
+    for entry in entryTbl:
+        entries.append(entry)
+
+    return entries
+
 @app.get("/series/get-series", status_code=200, tags=['series'])
 async def getSeries(seriesId: int):
     db = connect_db()
