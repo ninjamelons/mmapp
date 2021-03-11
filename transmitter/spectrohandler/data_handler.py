@@ -4,6 +4,7 @@ import pandas as pd
 from BaselineRemoval import BaselineRemoval
 
 import logging
+import sys, traceback
 import requests
 
 transmitterUrl = 'http://localhost:5500'
@@ -39,10 +40,10 @@ def getLatestSeries():
         latestSeries = allSeries[len(allSeries) - 1]
     return latestSeries
 
-def getLatestEntry(id, lastDate):
+def getLatestEntry(id, lastDate, lastPointNo):
     return requests.get(transmitterUrl +
-        '/series/get-series-entries-latest?seriesId={}&lastDate={}'
-        .format(id, lastDate)).json()
+        '/series/get-series-entries-latest?seriesId={}&lastDate={}&lastPointNo={}'
+        .format(id, lastDate, lastPointNo)).json()
 
 def getSeriesEntries(id):
     return requests.get(transmitterUrl + 
@@ -89,7 +90,8 @@ def filterAcquisition(id, *, corrected=1, coordRange=None, frequencies=None, int
     if coordRange != None:    
         try:
             df = filterCoordinates(coordRange)
-        except:
+        except Exception as ex:
+            traceback.print_exception(sys.exc_info())
             logging.error("""coordRange: Expected Object with 
                 values {'rangeX':[min,max],'rangeY':[min, max]}, 
                 got """+str(coordRange)+""" instead""")

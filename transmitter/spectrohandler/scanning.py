@@ -6,6 +6,9 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
+import traceback
+import sys
+
 import json
 import pandas as pd
 
@@ -47,10 +50,11 @@ class Scanning():
                 'EndDatetime': ""
             }
 
+        #Get series entries in reversed order
         self.seriesEntries = dh.getSeriesEntries(self.latestSeries['Id'])
         series = self.seriesEntries.pop('series', None)
         if series != None:
-            self.seriesEntries = series.items()[::-1]
+            self.seriesEntries = list(reversed(self.seriesEntries.values()))
 
         self.points_table_headers = [
             'X','Y','Abs. X','Abs. Y','Exp. X','Exp. Y', 'X Diff.', 'Y Diff.'
@@ -72,13 +76,17 @@ class Scanning():
                     html.P("Newer entries appear at the top of the table."),
                     dbc.Table(id='table-points', bordered=True,
                         style={'textAlign': 'center'})
-                ], lg=4, width=12, style={'maxHeight': '30rem', 'overflowY': 'scroll'}),
+                ], xl=5, width=12, style={'maxHeight': '30rem', 'overflowY': 'scroll', 'marginBottom': '1rem'}),
                 # Display scan estimation/data
                 dbc.Col([
-                    html.H2(str(self.latestSeries['Id'])+': '+self.latestSeries['Title']),
-                    html.H4(f'Radius: {self.latestSeries["Radius"]}'),
-                    html.H4(f'Origin [X,Y]: [{self.latestSeries["OriginX"]},{self.latestSeries["OriginY"]}]'),
-                    html.H4(f'Start Datetime: {self.latestSeries["StartDatetime"]}'),
+                    html.Span('ID: '+str(self.latestSeries['Id']), style={'color':'grey'}),
+                    html.H2(self.latestSeries['Title']),
+                    html.Span('Radius', style={'color':'grey'}),
+                    html.H4(self.latestSeries["Radius"]),
+                    html.Span('Origin [X,Y]', style={'color':'grey'}),
+                    html.H4(f'[{self.latestSeries["OriginX"]},{self.latestSeries["OriginY"]}]'),
+                    html.Span('Start Datetime', style={'color':'grey'}),
+                    html.H4(self.latestSeries["StartDatetime"]),
                     dbc.Card([
                         dbc.CardHeader(html.H4("Scan Estimation")),
                         dbc.CardBody([
@@ -86,7 +94,7 @@ class Scanning():
                             dbc.Progress(value=0, id="estimation-progress-bar", striped=True, animated=True),
                         ])
                     ])
-                ], lg=8, width=12)
+                ], xl=7, width=12)
             ], style={'margin': '1rem'})
         ])
     
@@ -98,13 +106,13 @@ class Scanning():
                 ))
             ]
 
-            #Loop through df rows in reverse index order
+            #Loop through df rows
             rows = []
-            for index, row in df.iloc[::-1].iterrows():
+            for index, row in df.iterrows():
                 rows.append(html.Tr([html.Td(field) for field in row]))
             table_body = [html.Tbody(rows)]
         except Exception as ex:
-            print(ex + ": Error Build Table")
+            traceback.print_exception(sys.exc_info())
 
         return table_header+table_body
     
@@ -113,7 +121,7 @@ class Scanning():
         # less calls to get all series entries
         @self.dash.callback(
             [Output('table-points', 'children'),
-            Output('estimation-progress-p', 'value'),
+            Output('estimation-progress-p', 'children'),
             Output('estimation-progress-bar', 'value'),
             Output('estimation-progress-bar', 'max'),
             Output('estimation-progress-bar', 'children')],
@@ -122,25 +130,35 @@ class Scanning():
             try:
                 retOutput = []
 
+                #Check if reload required
+                latestSeries = dh.getLatestSeries()
+                if latestSeries['Id'] != self.latestSeries['Id']:
+                    self.reload()
+
                 #Update table
-                try:
-                    entries = dh.getLatestEntry(self.latestSeries['Id'],
-                        self.seriesEntries[self.seriesEntries[0]]['InitDatetime'])
-                    #Concat entries InitDatetime DESC
+                entries = dh.getLatestEntry(self.latestSeries['Id'],
+                    self.seriesEntries[0]['InitDatetime'],
+                    self.seriesEntries[0]['PointNo'])
+                #Concat entries InitDatetime DESC
+                if len(entries) > 0:
                     self.seriesEntries = entries + self.seriesEntries
-
-                    df = pd.Dataframe(self.seriesEntries)
-
-                    retOutput.append(self.build_table(df))
-                except Exception as ex:
-                    print(str(ex) + "\nError when building table")
+                #Update dataframe for table
+                df = pd.DataFrame(self.seriesEntries)
+                df = df.iloc[:,1:5]
+                df['ExpX'] = df['StageX'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
+                df['ExpY'] = df['StageY'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
+                df['DiffX'] = round(df['PosX'] - df['ExpX'], 2)
+                df['DiffY'] = round(df['PosY'] - df['ExpY'], 2)
+                retOutput.append(self.build_table(df))
 
                 #Update progress bar
-                retOutput.append("10/50")
-                retOutput.append(10)
-                retOutput.append(50)
-                retOutput.append("20%")
-            except:
-                print("Error Scan Interval")
+                currPoints = len(self.seriesEntries)
+                maxPoints = self.latestSeries['NoPoints']
+                retOutput.append('No. Scans: '+str(currPoints)+'/'+str(maxPoints))
+                retOutput.append(currPoints)
+                retOutput.append(maxPoints)
+                retOutput.append(str(round(currPoints/maxPoints * 100, 2))+'%')
+            except Exception as ex:
+                traceback.print_exception(sys.exc_info())
 
             return retOutput

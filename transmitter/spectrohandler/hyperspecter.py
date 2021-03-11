@@ -165,7 +165,7 @@ class Hyperspecter():
         try:
             df = df.iloc[:,np.r_[1:4, 8:9, 6:7]]
         except Exception as ex:
-            print(ex)
+            traceback.print_exception(sys.exc_info())
     
         table_header = [
             html.Thead(html.Tr([html.Th(col) for col in self.table_headers]))
@@ -357,7 +357,7 @@ class Hyperspecter():
             try:
                 volumetric_fig = self.volumetric_graph(id, intensity, corrected)
             except Exception as ex:
-                print(ex)
+                traceback.print_exception(sys.exc_info())
                 return fig, 'd-block'
             return volumetric_fig, 'd-none'
 
@@ -376,7 +376,7 @@ class Hyperspecter():
             try:
                 surface_fig = self.surface_3d_graph(id, frequency, smoothing, intensity, corrected)
             except Exception as ex:
-                print(ex)
+                traceback.print_exception(sys.exc_info())
                 return fig, 'd-block'
             return surface_fig, 'd-none'
 
@@ -408,7 +408,7 @@ class Hyperspecter():
             try:
                 line_fig = self.frequency_line_chart(id, intensity, corrected)
             except Exception as ex:
-                print(ex)
+                traceback.print_exception(sys.exc_info())
                 return fig, 'd-block'
             return line_fig, 'd-none'
 
