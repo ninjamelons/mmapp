@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 import logging, sys
+import traceback
 
 try:
     from .mmcontrols import stage_lib
@@ -76,7 +77,7 @@ async def newSeries(series: SpectroscopySeries):
     insertSeries = 'INSERT INTO Series (Title, Radius, Interval, OriginX, OriginY) VALUES (?,?,?,?,?)'
     insertId = db.execute(insertSeries, [series.Title, series.Radius, series.Interval, xyPos.x, xyPos.y]).lastrowid
     #Create Origin SeriesEntry
-    insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?)'
+    insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?,?,?)'
     db.execute(insertOrigin, [insertId, 0, 0, xyPos.x, xyPos.y, 0])
     db.commit()
 
@@ -124,7 +125,7 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
         contents = await file.read()
         contents = contents.decode(errors='ignore').splitlines()
     except Exception as ex:
-        logging.error(ex)
+        traceback.print_exception(sys.exc_info())
 
     fnameArr = file.filename.split('[')
     id = fnameArr[0].split('_')[0] #Deprecated - Only exists for testing now
@@ -205,7 +206,7 @@ async def moveStageSequence(seriesId: int):
             Expected Position: [{expectedPosAbsolute[0]},{expectedPosAbsolute[1]}]""")
 
         #Insert new SeriesEntry
-        insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?)'
+        insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?,?,?)'
         db.execute(insertOrigin, [seriesId, nextPos[0], nextPos[1], xyPos.x, xyPos.y, nextPos[2]])
         db.commit()
 
@@ -290,6 +291,81 @@ class Series(BaseModel):
     X: float
     Y: float
 
+@app.post("/series/new-series", status_code=201, tags=["series"])
+async def newSeriesSeries(series: SpectroscopySeries):
+    db = connect_db()
+
+    #Create new Series
+    insertSeries = 'INSERT INTO Series (Title, Radius, Interval, OriginX, OriginY) VALUES (?,?,?,?,?)'
+    insertId = db.execute(insertSeries, [series.Title, series.Radius, series.Interval, 0, 0]).lastrowid
+
+    #Create Origin SeriesEntry
+    insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?,?,?)'
+    db.execute(insertOrigin, [insertId, 0, 0, 0, 0, 0])
+    db.commit()
+
+    final = False
+    if series.Radius == 0:
+        final = True
+
+    #Return auto-incremented Series.Id
+    returnSeries = {
+        'seriesId': insertId,
+        'final': final,
+        'stageX': 0,
+        'stageY': 0,
+        'pointNo': 0
+    }
+
+    return returnSeries
+
+@app.post("/series/insert-entry-next", status_code=201, tags=["series"])
+async def insertEntryNext(seriesId: int):
+    db = connect_db()
+
+    #Get accessed series & Current position
+    selectSeries = """SELECT Series.Id, Series.Radius, Series.Interval, SeriesEntry.StageX, SeriesEntry.StageY
+        FROM Series INNER JOIN SeriesEntry ON Series.Id = SeriesEntry.SeriesId
+        WHERE Series.Id = (?) ORDER BY SeriesEntry.InitDatetime DESC,
+        SeriesEntry.PointNo DESC LIMIT 1"""
+    previousEntry = db.execute(selectSeries, [seriesId]).fetchone()
+
+    #If no entries then series does not exist
+    if previousEntry != None:
+        radius = previousEntry['Radius']
+        interval = previousEntry['Interval']
+        curr_xPos = previousEntry['StageX']
+        curr_yPos = previousEntry['StageY']
+        noPoints = (int(radius)*2 + 1)**2
+
+        #Calc next position
+        nextPos = position_lib.GetNextPosition(curr_xPos, curr_yPos, noPoints)
+        if nextPos == None:
+            raise HTTPException(status_code=403, detail='Stage at last position already')
+
+        #Get the next position's absolute micrometer value
+        #Can be used for expected and actual when not moving the stage
+        expectedPosAbsolute = [float(nextPos[0]) * interval, float(nextPos[1]) * interval]
+
+        #Insert new SeriesEntry
+        insertEntry = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?,?,?)'
+        db.execute(insertEntry, [seriesId, nextPos[0], nextPos[1], expectedPosAbsolute[0], expectedPosAbsolute[1], nextPos[2]])
+        db.commit()
+
+        returnSeries = {
+            "seriesId": seriesId,
+            "final": nextPos[3],
+            "stageX": nextPos[0],
+            "stageY": nextPos[1],
+            "posX": expectedPosAbsolute[0],
+            "posY": expectedPosAbsolute[1],
+            "pointNo": nextPos[2],
+        }
+
+        return returnSeries
+    else:
+        raise HTTPException(status_code=404, detail='Series does not exist')
+
 @app.post("/series/move-stage-origin-relative", status_code=200, tags=["series"])
 async def moveStageOriginRelative(series: Series):
     db = connect_db()
@@ -331,23 +407,21 @@ async def getSeriesEntries(seriesId: int):
     return returnSeries
 
 @app.get("/series/get-series-entries-latest", status_code=200, tags=["series"])
-async def getSeriesEntriesLatest(seriesId: int, lastDate: datetime):
+async def getSeriesEntriesLatest(seriesId: int, lastDate: datetime, lastPointNo: int):
     db = connect_db()
 
-    selectEntry = """SELECT * FROM SeriesEntry WHERE Id = (?) AND InitDatetime > (?)
-        ORDER BY InitDatetime DESC"""
-    entryTbl = db.execute(selectEntry, [seriesId, lastDate]).fetchall()
-
-    if entryTbl == None:
-        raise HTTPException(status_code=404, detail='Series does not exist')
+    selectEntry = """SELECT * FROM SeriesEntry WHERE SeriesId = (?) AND InitDatetime >= (?) AND PointNo > (?)
+        ORDER BY InitDatetime DESC, PointNo DESC"""
+    entryTbl = db.execute(selectEntry, [seriesId, lastDate, lastPointNo]).fetchall()
 
     entries = []
-    for entry in entryTbl:
-        entries.append(entry)
+    if entryTbl != None:
+        for entry in entryTbl:
+            entries.append(entry)
 
     return entries
 
-@app.get("/series/get-series", status_code=200, tags=['series'])
+@app.get("/series/get-series", status_code=200, tags=["series"])
 async def getSeries(seriesId: int):
     db = connect_db()
 

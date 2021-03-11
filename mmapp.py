@@ -25,6 +25,7 @@ pkg_resources.get_distribution = _get_distribution
 #**********************************************#
 
 # Main entry point for app
+import traceback
 import time
 from threading import Thread
 
@@ -53,4 +54,4 @@ if __name__ == "__main__":
 
         run_gui()
     except Exception as ex:
-        print(ex)
+        traceback.print_exception(sys.exc_info())
