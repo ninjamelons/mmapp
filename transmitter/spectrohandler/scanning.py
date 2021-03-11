@@ -71,8 +71,8 @@ class Scanning():
             dbc.Row([
                 # Display vertical Table
                 dbc.Col([
-                    html.P("""Live table displays the stage's indexed X/Y, current absolute X/Y,
-                        expected absolute X/Y, and the difference between current and expected absolute X/Y"""),
+                    html.P("""Live table displays the stage's indexed X/Y, current absolute X/Y stage position,
+                        expected absolute X/Y stage position, and the difference between current and expected absolute X/Y stage position"""),
                     html.P("Newer entries appear at the top of the table."),
                     dbc.Table(id='table-points', bordered=True,
                         style={'textAlign': 'center'})
@@ -81,7 +81,7 @@ class Scanning():
                 dbc.Col([
                     html.Span('ID: '+str(self.latestSeries['Id']), style={'color':'grey'}),
                     html.H2(self.latestSeries['Title']),
-                    html.Span('Radius', style={'color':'grey'}),
+                    html.Span('Points radius', style={'color':'grey'}),
                     html.H4(self.latestSeries["Radius"]),
                     html.Span('Origin [X,Y]', style={'color':'grey'}),
                     html.H4(f'[{self.latestSeries["OriginX"]},{self.latestSeries["OriginY"]}]'),
