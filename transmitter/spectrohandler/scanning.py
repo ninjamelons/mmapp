@@ -59,7 +59,6 @@ class Scanning():
         self.points_table_headers = [
             'X','Y','Abs. X','Abs. Y','Exp. X','Exp. Y', 'X Diff.', 'Y Diff.'
         ]
-        pass
 
     def grid_layout(self):
         return html.Div([
@@ -79,14 +78,7 @@ class Scanning():
                 ], xl=5, width=12, style={'maxHeight': '30rem', 'overflowY': 'scroll', 'marginBottom': '1rem'}),
                 # Display scan estimation/data
                 dbc.Col([
-                    html.Span('ID: '+str(self.latestSeries['Id']), style={'color':'grey'}),
-                    html.H2(self.latestSeries['Title']),
-                    html.Span('Points radius', style={'color':'grey'}),
-                    html.H4(self.latestSeries["Radius"]),
-                    html.Span('Origin [X,Y]', style={'color':'grey'}),
-                    html.H4(f'[{self.latestSeries["OriginX"]},{self.latestSeries["OriginY"]}]'),
-                    html.Span('Start Datetime', style={'color':'grey'}),
-                    html.H4(self.latestSeries["StartDatetime"]),
+                    html.Div(self.getTitleAttributes(), id='title-attributes'),
                     dbc.Card([
                         dbc.CardHeader(html.H4("Scan Estimation")),
                         dbc.CardBody([
@@ -116,11 +108,22 @@ class Scanning():
 
         return table_header+table_body
     
+    def getTitleAttributes(self):
+        return [html.Span('ID: '+str(self.latestSeries['Id']), style={'color':'grey'}),
+            html.H2(self.latestSeries['Title']),
+            html.Span('Points radius', style={'color':'grey'}),
+            html.H4(self.latestSeries["Radius"]),
+            html.Span('Origin [X,Y]', style={'color':'grey'}),
+            html.H4(f'[{self.latestSeries["OriginX"]},{self.latestSeries["OriginY"]}]'),
+            html.Span('Start Datetime', style={'color':'grey'}),
+            html.H4(self.latestSeries["StartDatetime"])]
+    
     def dash_callbacks(self):
         # Update all interval outputs in single function
         # less calls to get all series entries
         @self.dash.callback(
             [Output('table-points', 'children'),
+            Output('title-attributes', 'children'),
             Output('estimation-progress-p', 'children'),
             Output('estimation-progress-bar', 'value'),
             Output('estimation-progress-bar', 'max'),
@@ -152,11 +155,15 @@ class Scanning():
                     df = df.iloc[:,1:5]
                     df['ExpX'] = df['StageX'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
                     df['ExpY'] = df['StageY'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
-                    df['DiffX'] = round(df['PosX'] - df['ExpX'], 2)
-                    df['DiffY'] = round(df['PosY'] - df['ExpY'], 2)
+                    df['DiffX'] = df['PosX'] - df['ExpX']
+                    df['DiffY'] = df['PosY'] - df['ExpY']
+                    df.round(2)
                 except:
                     pass
                 retOutput.append(self.build_table(df))
+
+                #Update title attributes
+                retOutput.append(self.getTitleAttributes())
 
                 #Update progress bar
                 currPoints = len(self.seriesEntries)
