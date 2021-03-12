@@ -101,7 +101,7 @@ class Scanning():
             #Loop through df rows
             rows = []
             for index, row in df.iterrows():
-                rows.append(html.Tr([html.Td(field) for field in row]))
+                rows.append(html.Tr([html.Td('{:0.2f}'.format(field)) for field in row]))
             table_body = [html.Tbody(rows)]
         except Exception as ex:
             traceback.print_exception(sys.exc_info())
@@ -157,7 +157,6 @@ class Scanning():
                     df['ExpY'] = df['StageY'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
                     df['DiffX'] = df['PosX'] - df['ExpX']
                     df['DiffY'] = df['PosY'] - df['ExpY']
-                    df.round(2)
                 except:
                     pass
                 retOutput.append(self.build_table(df))
