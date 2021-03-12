@@ -65,7 +65,7 @@ class Scanning():
         return html.Div([
             dcc.Interval(
                 id='interval-component',
-                interval=1*1000, # in milliseconds
+                interval=1*5000, # in milliseconds
                 n_intervals=0
             ),
             dbc.Row([
@@ -136,19 +136,26 @@ class Scanning():
                     self.reload()
 
                 #Update table
-                entries = dh.getLatestEntry(self.latestSeries['Id'],
-                    self.seriesEntries[0]['InitDatetime'],
-                    self.seriesEntries[0]['PointNo'])
-                #Concat entries InitDatetime DESC
-                if len(entries) > 0:
-                    self.seriesEntries = entries + self.seriesEntries
-                #Update dataframe for table
-                df = pd.DataFrame(self.seriesEntries)
-                df = df.iloc[:,1:5]
-                df['ExpX'] = df['StageX'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
-                df['ExpY'] = df['StageY'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
-                df['DiffX'] = round(df['PosX'] - df['ExpX'], 2)
-                df['DiffY'] = round(df['PosY'] - df['ExpY'], 2)
+                try:
+                    entries = dh.getLatestEntry(self.latestSeries['Id'],
+                        self.seriesEntries[0]['InitDatetime'],
+                        self.seriesEntries[0]['PointNo'])
+                    #Concat entries InitDatetime DESC
+                    if len(entries) > 0:
+                        self.seriesEntries = entries + self.seriesEntries
+                except:
+                    pass
+                
+                try:
+                    #Update dataframe for table
+                    df = pd.DataFrame(self.seriesEntries)
+                    df = df.iloc[:,1:5]
+                    df['ExpX'] = df['StageX'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
+                    df['ExpY'] = df['StageY'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
+                    df['DiffX'] = round(df['PosX'] - df['ExpX'], 2)
+                    df['DiffY'] = round(df['PosY'] - df['ExpY'], 2)
+                except:
+                    pass
                 retOutput.append(self.build_table(df))
 
                 #Update progress bar

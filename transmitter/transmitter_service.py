@@ -202,7 +202,7 @@ async def moveStageSequence(seriesId: int):
         except:
             raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
 
-        print(f"""Stage Position: [{xyPos[0]},{xyPos[1]}];\n
+        print(f"""Stage Position: [{xyPos.x},{xyPos.y}];\n
             Expected Position: [{expectedPosAbsolute[0]},{expectedPosAbsolute[1]}]""")
 
         #Insert new SeriesEntry
