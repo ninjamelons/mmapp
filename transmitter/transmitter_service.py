@@ -170,7 +170,8 @@ async def moveStageSequence(seriesId: int):
     db = connect_db()
 
     #Get accessed series & Current position
-    selectSeries = """SELECT Series.Id, Series.Radius, Series.Interval, SeriesEntry.StageX, SeriesEntry.StageY
+    selectSeries = """SELECT Series.Id, Series.Radius, Series.Interval, Series.OriginX,
+        Series.OriginY, SeriesEntry.StageX, SeriesEntry.StageY
         FROM Series INNER JOIN SeriesEntry ON Series.Id = SeriesEntry.SeriesId
         WHERE Series.Id = (?) ORDER BY SeriesEntry.InitDatetime DESC,
         SeriesEntry.PointNo DESC LIMIT 1"""
@@ -180,6 +181,8 @@ async def moveStageSequence(seriesId: int):
     if previousEntry != None:
         radius = previousEntry['Radius']
         interval = previousEntry['Interval']
+        originX = previousEntry['OriginX']
+        originY = previousEntry['OriginY']
         curr_xPos = previousEntry['StageX']
         curr_yPos = previousEntry['StageY']
         noPoints = (int(radius)*2 + 1)**2
@@ -188,22 +191,32 @@ async def moveStageSequence(seriesId: int):
         nextPos = position_lib.GetNextPosition(curr_xPos, curr_yPos, noPoints)
         if nextPos == None:
             raise HTTPException(status_code=403, detail='Stage at last position already')
-        dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
 
         #Get the next position's absolute micrometer value
-        expectedPosAbsolute = [nextPos[0] * interval, nextPos[1] * interval]
+        expPosAbs = [nextPos[0] * interval + originX, nextPos[1] * interval + originY]
+        dxdy = [0,0]
+        xyPos = {}
 
         #Move stage next position
         try:
             stage = stage_lib.StageLib(stageDevice)
-            stage.moveStageRelative(dxdy, interval)
-            stage.waitForDevice(stageDevice)
-            xyPos = stage.getCurrentPosition()
+            #While stage is not in next position, Move Stage
+            isExpected = False
+            while isExpected:
+                dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
+                stage.moveStageRelative(dxdy, interval)
+                stage.waitForDevice(stageDevice)
+                xyPos = stage.getCurrentPosition()
+                if xyPos.x == expPosAbs[0] and xyPos.y == expPosAbs[1]:
+                    isExpected = True
+                else:
+                    curr_yPos = xyPos.y
+                    curr_xPos = xyPos.x
         except:
             raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
 
         print(f"""Stage Position: [{xyPos.x},{xyPos.y}];\n
-            Expected Position: [{expectedPosAbsolute[0]},{expectedPosAbsolute[1]}]""")
+            Expected Position: [{expPosAbs[0]},{expPosAbs[1]}]""")
 
         #Insert new SeriesEntry
         insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?,?,?)'
@@ -324,7 +337,8 @@ async def insertEntryNext(seriesId: int):
     db = connect_db()
 
     #Get accessed series & Current position
-    selectSeries = """SELECT Series.Id, Series.Radius, Series.Interval, SeriesEntry.StageX, SeriesEntry.StageY
+    selectSeries = """SELECT Series.Id, Series.Radius, Series.Interval, Series.OriginX,
+        Series.OriginY, SeriesEntry.StageX, SeriesEntry.StageY
         FROM Series INNER JOIN SeriesEntry ON Series.Id = SeriesEntry.SeriesId
         WHERE Series.Id = (?) ORDER BY SeriesEntry.InitDatetime DESC,
         SeriesEntry.PointNo DESC LIMIT 1"""
@@ -334,6 +348,8 @@ async def insertEntryNext(seriesId: int):
     if previousEntry != None:
         radius = previousEntry['Radius']
         interval = previousEntry['Interval']
+        originX = previousEntry['OriginX']
+        originY = previousEntry['OriginY']
         curr_xPos = previousEntry['StageX']
         curr_yPos = previousEntry['StageY']
         noPoints = (int(radius)*2 + 1)**2
@@ -345,11 +361,11 @@ async def insertEntryNext(seriesId: int):
 
         #Get the next position's absolute micrometer value
         #Can be used for expected and actual when not moving the stage
-        expectedPosAbsolute = [float(nextPos[0]) * interval, float(nextPos[1]) * interval]
+        expPosAbs = [float(nextPos[0]) * interval + originX, float(nextPos[1]) * interval + originY]
 
         #Insert new SeriesEntry
         insertEntry = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?,?,?)'
-        db.execute(insertEntry, [seriesId, nextPos[0], nextPos[1], expectedPosAbsolute[0], expectedPosAbsolute[1], nextPos[2]])
+        db.execute(insertEntry, [seriesId, nextPos[0], nextPos[1], expPosAbs[0], expPosAbs[1], nextPos[2]])
         db.commit()
 
         returnSeries = {
@@ -357,8 +373,8 @@ async def insertEntryNext(seriesId: int):
             "final": nextPos[3],
             "stageX": nextPos[0],
             "stageY": nextPos[1],
-            "posX": expectedPosAbsolute[0],
-            "posY": expectedPosAbsolute[1],
+            "posX": expPosAbs[0],
+            "posY": expPosAbs[1],
             "pointNo": nextPos[2],
         }
 
