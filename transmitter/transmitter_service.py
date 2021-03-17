@@ -196,6 +196,7 @@ async def moveStageSequence(seriesId: int):
         expPosAbs = [nextPos[0] * interval + originX, nextPos[1] * interval + originY]
         dxdy = [0,0]
         epsilon = 0.05
+        maxTries = 10
 
         #Move stage next position
         try:
@@ -204,6 +205,7 @@ async def moveStageSequence(seriesId: int):
             #While stage is not in next position, Move Stage
             isExpected = False
             while not isExpected:
+                nTries = 0
                 dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
                 stage.moveStageRelative(dxdy, interval)
                 stage.waitForDevice(stageDevice)
@@ -214,8 +216,12 @@ async def moveStageSequence(seriesId: int):
                     abs(round(xyPos.y, 2) - round(expPosAbs[1], 2)) <= epsilon)):
                     isExpected = True
                 else:
+                    nTries += 1
                     curr_yPos = xyPos.y
                     curr_xPos = xyPos.x
+                if nTries >= maxTries:
+                    epsilon += 0.01
+                    nTries = 0
             xyPos = stage.getCurrentPosition()
         except:
             raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
