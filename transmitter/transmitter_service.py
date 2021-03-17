@@ -195,23 +195,28 @@ async def moveStageSequence(seriesId: int):
         #Get the next position's absolute micrometer value
         expPosAbs = [nextPos[0] * interval + originX, nextPos[1] * interval + originY]
         dxdy = [0,0]
-        xyPos = {}
+        epsilon = 0.05
 
         #Move stage next position
         try:
             stage = stage_lib.StageLib(stageDevice)
+            xyPos = stage.getCurrentPosition()
             #While stage is not in next position, Move Stage
             isExpected = False
-            while isExpected:
+            while not isExpected:
                 dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
                 stage.moveStageRelative(dxdy, interval)
                 stage.waitForDevice(stageDevice)
                 xyPos = stage.getCurrentPosition()
-                if xyPos.x == expPosAbs[0] and xyPos.y == expPosAbs[1]:
+                if ((round(xyPos.x, 2) == round(expPosAbs[0], 2) and
+                    round(xyPos.y, 2) == round(expPosAbs[1], 2)) or
+                    (abs(round(xyPos.x, 2) - round(expPosAbs[0], 2)) <= epsilon and
+                    abs(round(xyPos.y, 2) - round(expPosAbs[1], 2)) <= epsilon)):
                     isExpected = True
                 else:
                     curr_yPos = xyPos.y
                     curr_xPos = xyPos.x
+            xyPos = stage.getCurrentPosition()
         except:
             raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
 

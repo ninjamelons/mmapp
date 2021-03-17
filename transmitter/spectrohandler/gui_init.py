@@ -50,7 +50,7 @@ def get_page(app, pages):
             return pages['default'].layout
 
 def start_webview(app):
-    window = webview.create_window('Raman Imaging', app.dash.server, width=1300, height=850)
+    window = webview.create_window('MM App - Hyperspecter', app.dash.server, width=1300, height=850)
     webview.start()
 
 def start_dash(app):

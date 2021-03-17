@@ -154,7 +154,7 @@ class Scanning():
                     df = pd.DataFrame(self.seriesEntries)
                     df = df.iloc[:,1:5]
                     df['ExpX'] = df['StageX'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
-                    df['ExpY'] = df['StageY'] * self.latestSeries['Interval'] + self.latestSeries['OriginX']
+                    df['ExpY'] = df['StageY'] * self.latestSeries['Interval'] + self.latestSeries['OriginY']
                     df['DiffX'] = df['PosX'] - df['ExpX']
                     df['DiffY'] = df['PosY'] - df['ExpY']
                 except:
