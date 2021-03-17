@@ -15,6 +15,7 @@ import pandas as pd
 
 import traceback
 import sys
+import os
 
 try:
     from . import data_handler as dh
@@ -139,13 +140,16 @@ class Hyperspecter():
                                     dbc.Alert('Something went wrong. Selected series may not include the input frequency',
                                         id='surface-alert', color='danger', className='d-none',
                                         style={'marginTop': '1rem'}),
+                                    dbc.Alert('Downloaded surface chart csv',
+                                        id='download-alert', color='success', dismissable=True, is_open=False,
+                                        style={'marginTop': '1rem'}),
                                     dbc.InputGroup([
                                         dbc.InputGroupAddon('Frequency'),
                                         dbc.Input(id='surface-frequency', type='number', value=1000),
                                         dbc.InputGroupAddon('Smoothing', style={'marginLeft': '1rem'}),
                                         dbc.Input(id='surface-smoothing', type='number', min=0, max=5, step=0.1, value=0.6),
-                                        dbc.Button(html.I(className='fas fa-search'),
-                                            id='surface-submit', style={'marginLeft': '1rem'}),
+                                        dbc.Button(html.I(className='fas fa-download'),
+                                            id='surface-download', style={'marginLeft': '1rem'}),
                                     ], size='lg', style={'marginTop': '1rem'}),
                                     dcc.Graph(id='surface-3d-graph'),
                                 ], lg=12, xl=6)
@@ -301,9 +305,6 @@ class Hyperspecter():
         idx = (np.abs(array - frequency)).argmin()
         nearestFreq = array[idx]
 
-        #If filterAcquistion filters by intensity the
-        # melted df returns float type columns,
-        # otherwise columns remain as strings - Should fix this
         df = df.loc[:,['x','y',nearestFreq]]
 
         #Convert 3 column df to rows = x, columns = y, values = intensity
@@ -367,13 +368,12 @@ class Hyperspecter():
         @self.dash.callback(
             [Output('surface-3d-graph', 'figure'),
             Output('surface-alert', 'className')],
-            [Input('surface-submit', 'n_clicks'),
-            Input('series-selector', 'value'),
+            [Input('series-selector', 'value'),
             Input('surface-frequency', 'value'),
             Input('surface-smoothing', 'value'),
             Input('series-intensity', 'value'),
             Input('series-corrected', 'value')])
-        def update_surface_graph(n_clicks, id, frequency, smoothing, intensity, corrected):
+        def update_surface_graph(id, frequency, smoothing, intensity, corrected):
             if id == '':
                 return fig, 'd-none'
             try:
@@ -462,6 +462,47 @@ class Hyperspecter():
                     return str(clickData['points'])
             except:
                 pass
+
+        @self.dash.callback(
+            Output('download-alert', 'is_open'),
+            [Input('surface-download', 'n_clicks')],
+            [State('series-selector', 'value'),
+            State('surface-frequency', 'value'),
+            State('series-intensity', 'value'),
+            State('series-corrected', 'value')])
+        def surfaceDownload(nclicks, id, frequency, intensity, corrected):
+            if id == '':
+                return False
+            #Dataframe
+            id = int(id)
+            intensity = int(intensity)
+            frequency = float(frequency)
+            df = dh.filterAcquisition(id, intensity=intensity, corrected=corrected)
+
+            array = df.columns[2:].astype('float64')
+            idx = (np.abs(array - frequency)).argmin()
+            nearestFreq = array[idx]
+
+            df = df.loc[:,['x','y',nearestFreq]]
+
+            #Title
+            series = dh.getSeriesAtId(id)
+            title = series['Title']
+
+            current_directory = os.getcwd()
+            final_directory = os.path.join(current_directory, r'downloads')
+            if not os.path.exists(final_directory):
+                os.makedirs(final_directory)
+
+            #Write to csv
+            df.to_csv('./downloads/{}_{}_{:.2f}.csv'.format(id, title, nearestFreq))
+
+            return True
+
+#Implement basic javascript-like functions in python
+#Instead of callback
+class API():
+    pass
 
 #Debug single page
 if __name__ == "__main__":
