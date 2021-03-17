@@ -195,17 +195,17 @@ async def moveStageSequence(seriesId: int):
         #Get the next position's absolute micrometer value
         expPosAbs = [nextPos[0] * interval + originX, nextPos[1] * interval + originY]
         dxdy = [0,0]
-        epsilon = 0.05
-        maxTries = 10
 
         #Move stage next position
         try:
+            epsilon = 0.05
+            maxTries = 10
+            nTries = 0
             stage = stage_lib.StageLib(stageDevice)
             xyPos = stage.getCurrentPosition()
             #While stage is not in next position, Move Stage
             isExpected = False
             while not isExpected:
-                nTries = 0
                 dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
                 stage.moveStageRelative(dxdy, interval)
                 stage.waitForDevice(stageDevice)
