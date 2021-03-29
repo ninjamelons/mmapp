@@ -17,9 +17,11 @@ class StageLib:
             return self.mmc.get_xy_stage_position()
         return None
 
-    def moveStageRelative(self, dxdy, interval):
-        dx = dxdy[0] * interval
-        dy = dxdy[1] * interval
+    # dxdy = Index position difference, interval = interval between indexes
+    # fail% = last stage movement actual movement compared to expected
+    def moveStageRelative(self, dxdy, interval, xDiffPc=0, yDiffPc=0):
+        dx = dxdy[0] * interval + (interval*xDiffPc)
+        dy = dxdy[1] * interval + (interval*yDiffPc)
         if self.mmc.get_xy_stage_device():
             self.mmc.set_relative_xy_position(dx, dy)
             self.waitForDevice(self.mmc.get_xy_stage_device())

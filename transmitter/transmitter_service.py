@@ -11,7 +11,8 @@ import sqlite3
 import numpy as np
 import pandas as pd
 
-import logging, sys
+from math import copysign
+import sys
 import traceback
 
 try:
@@ -120,7 +121,6 @@ async def updateFilenameLastPos(seriesId: int, fileName: str):
 async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
     db = connect_db()
 
-    logging.debug(f'Uploaded file: {file}')
     try:
         contents = await file.read()
         contents = contents.decode(errors='ignore').splitlines()
@@ -136,8 +136,6 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
     npArr.append(['id', seriesId])
     npArr.append(['x', stageX])
     npArr.append(['y', stageY])
-
-    logging.debug(f'File: [X:{stageX},Y:{stageY}]')
 
     for line in range(28, len(contents)-1):
         lineArr = contents[line].split('\t')
@@ -159,8 +157,6 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
         df.to_csv(csv, mode='a', header=header, index=False)
     except:
         retObj['success'] = False
-    
-    logging.debug(f'Success: {retObj["success"]}')
 
     return retObj
 
@@ -197,35 +193,57 @@ async def moveStageSequence(seriesId: int):
         dxdy = [0,0]
 
         #Move stage next position
+        epsilon = 0.05 # Accepted difference between expected and actual pos
+        maxTries = 5 # Max no. attempts to move stage per epsilon
+        nTries = 0 # No. attempts to move stage per epsilon
+        xMvDiff = 0 # Failed movement difference (% 0-1)
+        yMvDiff = 0 # Failed movement difference (% 0-1)
         try:
-            epsilon = 0.05
-            maxTries = 10
-            nTries = 0
             stage = stage_lib.StageLib(stageDevice)
-            xyPos = stage.getCurrentPosition()
-            #While stage is not in next position, Move Stage
-            isExpected = False
-            while not isExpected:
-                dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
-                stage.moveStageRelative(dxdy, interval)
-                stage.waitForDevice(stageDevice)
-                xyPos = stage.getCurrentPosition()
-                if ((abs(round(xyPos.x, 2) - round(expPosAbs[0], 2)) <= epsilon and
-                    abs(round(xyPos.y, 2) - round(expPosAbs[1], 2)) <= epsilon)):
-                    isExpected = True
-                else:
-                    nTries += 1
-                    curr_yPos = xyPos.y
-                    curr_xPos = xyPos.x
-                if nTries >= maxTries:
-                    epsilon += 0.01
-                    nTries = 0
             xyPos = stage.getCurrentPosition()
         except:
             raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
-
-        print(f"""Stage Position: [{xyPos.x},{xyPos.y}];\n
-            Expected Position: [{expPosAbs[0]},{expPosAbs[1]}]""")
+        #While stage is not in next position, Move Stage
+        isExpected = False
+        while not isExpected:
+            # Move stage
+            try:
+                dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
+                stage.moveStageRelative(dxdy, interval, xMvDiff, yMvDiff)
+                stage.waitForDevice(stageDevice)
+                xyPos = stage.getCurrentPosition()
+            except:
+                raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
+            #X/Y Diff w/ & w/o sign
+            xDiff = xyPos.x - expPosAbs[0]
+            xSign = copysign(1, xDiff)
+            xDiff = abs(xDiff)
+            
+            yDiff = xyPos.y - expPosAbs[1]
+            ySign = copysign(1, yDiff)
+            yDiff = abs(yDiff)
+            # Check is stage moved properly
+            if (xDiff <= epsilon and
+                yDiff <= epsilon):
+                isExpected = True
+            else:
+                # Else increment no. tries
+                nTries += 1
+                # Get xyMvDiff
+                xMvDiff += (1 - xDiff / interval) * xSign
+                yMvDiff += (1 - yDiff / interval) * ySign
+                # Set new current positions
+                curr_yPos = xyPos.y
+                curr_xPos = xyPos.x
+            
+            # Check no. tries exceeds max tries
+            if nTries >= maxTries:
+                epsilon += 0.01
+                nTries = 0
+        try:
+            xyPos = stage.getCurrentPosition()
+        except:
+            raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
 
         #Insert new SeriesEntry
         insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?,?,?)'
@@ -241,8 +259,6 @@ async def moveStageSequence(seriesId: int):
             "posY": xyPos.y,
             "pointNo": nextPos[2],
         }
-
-        logging.debug(f'Move stage: [X:{nextPos[0]},Y:{nextPos[1]}]; Points:{nextPos[2]}/{noPoints}')
 
         return returnSeries
     else:
@@ -509,5 +525,4 @@ def init_rest_service():
 #Start server with uvicorn
 if __name__ == "__main__":
     #init_rest_service()
-    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
     uvicorn.run("transmitter_service:app", host="0.0.0.0", port=5500, reload=True, timeout_keep_alive=0, log_level="info")
