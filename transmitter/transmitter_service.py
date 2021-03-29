@@ -210,9 +210,7 @@ async def moveStageSequence(seriesId: int):
                 stage.moveStageRelative(dxdy, interval)
                 stage.waitForDevice(stageDevice)
                 xyPos = stage.getCurrentPosition()
-                if ((round(xyPos.x, 2) == round(expPosAbs[0], 2) and
-                    round(xyPos.y, 2) == round(expPosAbs[1], 2)) or
-                    (abs(round(xyPos.x, 2) - round(expPosAbs[0], 2)) <= epsilon and
+                if ((abs(round(xyPos.x, 2) - round(expPosAbs[0], 2)) <= epsilon and
                     abs(round(xyPos.y, 2) - round(expPosAbs[1], 2)) <= epsilon)):
                     isExpected = True
                 else:
