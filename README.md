@@ -14,6 +14,32 @@ Run `raman_service.sql` against `raman_service.sqlite` to reset database and del
 
 In order for the database to be accessed correctly, all files that use it need to be run from the base folder *mmapp*
 
+### **`SQLite/SQL`**
+`raman_service.sqlite` contains two tables: *'Series'* & *'SeriesEntry'*
+
+'Series' table stores general information about a particular scan. Columns include:
+* Id
+* Title
+* Radius
+* Interval
+* OriginX*
+* OriginY*
+* StartDatetime
+* EndDatetime
+
+'SeriesEntry' table stores information about a specific point in a scan. Columns include:
+* SeriesId *(references Series: Id)*
+* StageX**
+* StageY**
+* PosX*
+* PosY*
+* PointNo
+* FileName *(Stored on LabSpec machine)*
+* InitDatetime
+
+*(Absolute Position),
+**(Index Position)
+
 ## **`transmitter_service.py`**
 REST API that facilitates requests from GUI and from LabSpec.
 
