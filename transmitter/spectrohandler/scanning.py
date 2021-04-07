@@ -32,6 +32,9 @@ class Scanning():
     def __init__(self, dash_gui):
         self.reload()
 
+        # Number of seconds between refresh/update
+        self.updateInterval = 5
+
         self.dash = dash_gui
         self.layout = self.grid_layout()
     
@@ -64,7 +67,7 @@ class Scanning():
         return html.Div([
             dcc.Interval(
                 id='interval-component',
-                interval=1*5000, # in milliseconds
+                interval=self.updateInterval*1000, # in milliseconds
                 n_intervals=0
             ),
             dbc.Row([
