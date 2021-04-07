@@ -79,7 +79,7 @@ OR together by running:
 
 `python ./mmapp.py`
 
-If `Debug` variable in mmapp.py is set to `true`, then GUI application will not open in a new window. It will instead be accessible from a browser on `localhost:5501`. This may also be more desired if for some reason the desktop standalone causes unknown errors.
+If `Debug` variable in mmapp.py is set to `true`, then GUI application will not open in a new window. It will instead be accessible from a browser on `localhost:5501`. This may also be more desired if for some reason the desktop standalone causes unknown errors. If for some reason the selected page is not rendered properly, refreshing will usually fix it.
 
 # Windows Build
 Building the full application requires `pyinstaller` package (Installed in requirements.txt), & `mmapp.spec` file.
