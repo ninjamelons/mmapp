@@ -1,4 +1,3 @@
-wheel
 fastapi
 pydantic
 uvicorn
