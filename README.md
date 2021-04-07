@@ -95,4 +95,4 @@ For pyinstaller to create the build properly, these files need to be linked in t
     * `plotly` -> `'./plotly/'`
     * `pyzmq.libs` -> `'./pyzmq.libs/'`
 
-Once finished, a new `mmapp` folder should be created inside `dist`. mmapp.exe will run the full application.
+Once finished, a new `mmapp` folder should be created inside `dist`. `mmapp.exe` will run the full application.
