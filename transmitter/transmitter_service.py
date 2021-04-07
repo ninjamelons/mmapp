@@ -160,7 +160,7 @@ async def postSequenceFile(seriesId: int, file: UploadFile = File(...)):
 
     return retObj
 
-#Move the stage to the next position in the series
+#Move the stage to the next position in the sequence
 @app.post("/sequence/move-stage-sequence", status_code=200, tags=["sequence"])
 async def moveStageSequence(seriesId: int):
     db = connect_db()
@@ -196,13 +196,14 @@ async def moveStageSequence(seriesId: int):
         epsilon = 0.05 # Accepted difference between expected and actual pos
         maxTries = 5 # Max no. attempts to move stage per epsilon
         nTries = 0 # No. attempts to move stage per epsilon
-        xMvDiff = 0 # Failed movement difference (% 0-1)
-        yMvDiff = 0 # Failed movement difference (% 0-1)
+        xMvDiff = 0 # Failed x movement difference (%, 0-1)
+        yMvDiff = 0 # Failed x movement difference (%, 0-1)
         try:
             stage = stage_lib.StageLib(stageDevice)
             xyPos = stage.getCurrentPosition()
         except:
             raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
+
         #While stage is not in next position, Move Stage
         isExpected = False
         while not isExpected:
