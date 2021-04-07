@@ -1,6 +1,6 @@
 # x_pos, y_pos = current coordinate position
 # noPoints = number of points in grid to be scanned
-def GetNextPosition(x_pos, y_pos, noPoints):
+def GetNextPositionSpiral(x_pos, y_pos, noPoints):
     dx, segment_length = 1, 1
     dy, x, y, segment_passed = 0, 0, 0, 0
     final = False
@@ -21,6 +21,29 @@ def GetNextPosition(x_pos, y_pos, noPoints):
             dx = buffer
             if dy == 0:
                 segment_length += 1
+# x_pos/y_pos - refer above
+# height/width = dimensions of rectangle to scan
+def GetNextPositionRect(x_pos, y_pos, height, width):
+    xypoint_pos = [0, 0, height, width, False]
+    # If current x position = width, then go to next row
+    if(x_pos == width):
+        xypoint_pos[0] = 0
+    else:
+        xypoint_pos[0] = x_pos + 1
+
+    # If current y position = height, then go to next column
+    if(y_pos == height):
+        xypoint_pos[1] = 0
+    else:
+        xypoint_pos[1] = y_pos + 1
+    
+    # If next x position = width, and current y position = height,
+    # then this is final point
+    if(x_pos + 1 == width and y_pos == height):
+        xypoint_pos[4] = True
+    
+    return xypoint_pos
+
 # x,y = Current position
 # x_pos,y_pos = Next position
 def GetDxDy(curr_x, curr_y, next_x, next_y):

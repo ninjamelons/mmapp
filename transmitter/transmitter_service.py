@@ -184,7 +184,7 @@ async def moveStageSequence(seriesId: int):
         noPoints = (int(radius)*2 + 1)**2
 
         #Calc next position
-        nextPos = position_lib.GetNextPosition(curr_xPos, curr_yPos, noPoints)
+        nextPos = position_lib.GetNextPositionSpiral(curr_xPos, curr_yPos, noPoints)
         if nextPos == None:
             raise HTTPException(status_code=403, detail='Stage at last position already')
 
@@ -381,7 +381,7 @@ async def insertEntryNext(seriesId: int):
         noPoints = (int(radius)*2 + 1)**2
 
         #Calc next position
-        nextPos = position_lib.GetNextPosition(curr_xPos, curr_yPos, noPoints)
+        nextPos = position_lib.GetNextPositionSpiral(curr_xPos, curr_yPos, noPoints)
         if nextPos == None:
             raise HTTPException(status_code=403, detail='Stage at last position already')
 
