@@ -93,23 +93,25 @@ class Hyperspecter():
                                                     style={'margin': '0'})
                                         ], style={'marginBottom': '1rem'}),
                                     ]),
-                                    dbc.ListGroupItemHeading('Filter series'),
-                                    dbc.InputGroup([
-                                        dcc.DatePickerRange(id='date-range',
-                                            className='mb-2'),
-                                        dbc.Button(html.I(className='fas fa-times'),
-                                            id='reset-date',
-                                            style={'height': '3rem', 'width': '3rem', 'marginLeft': '0.5rem'})
-                                    ], size='md'),
-                                    dbc.InputGroup([
-                                        dbc.InputGroupAddon('No. Points'),
-                                        dbc.Input(type='number', id='points-lower',
-                                            style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                                        dbc.Input(type='number', id='points-upper',
-                                            style={'minWidth': '6rem', 'maxWidth': '8rem'}),
-                                    ]),
-                                    dbc.InputGroup([
-                                    ], className='mb-2'),
+                                    dbc.ListGroup([
+                                        dbc.ListGroupItemHeading('Filter table by:'),
+                                        dbc.InputGroup([
+                                            dcc.DatePickerRange(id='date-range',
+                                                className='mb-2'),
+                                            dbc.Button(html.I(className='fas fa-times'),
+                                                id='reset-date',
+                                                style={'height': '3rem', 'width': '3rem', 'marginLeft': '0.5rem'})
+                                        ], size='md'),
+                                        dbc.InputGroup([
+                                            dbc.InputGroupAddon('No. Points'),
+                                            dbc.Input(type='number', id='points-lower',
+                                                style={'minWidth': '6rem', 'maxWidth': '8rem'}),
+                                            dbc.Input(type='number', id='points-upper',
+                                                style={'minWidth': '6rem', 'maxWidth': '8rem'}),
+                                        ]),
+                                        dbc.InputGroup([
+                                        ], className='mb-2'),
+                                    ])
                                 ], md=6, lg=5,),
                                 dbc.Col([
                                     dbc.Table(id='table', bordered=True,
@@ -132,7 +134,12 @@ class Hyperspecter():
                                     dbc.Alert('Selected series is not valid',
                                         id='volumetric-alert', color='danger', className='d-none',
                                         style={'marginTop': '1rem'}),
-                                    html.H3(self.title, style={'textAlign': 'center'}),
+                                    dbc.InputGroup([
+                                        dbc.InputGroupAddon('Min Wavelength'),
+                                        dbc.Input(id='volumetric-minlambda', type='number', value=975),
+                                        dbc.InputGroupAddon('Max Wavelength.', style={'marginLeft': '1rem'}),
+                                        dbc.Input(id='volumetric-maxlambda', type='number', value=1025),
+                                    ], size='lg', style={'marginTop': '1rem'}),
                                     dcc.Graph(id='volumetric-graph'),
                                     html.H3(id="volumetric-graph-click")
                                 ], lg=12, xl=6),
@@ -194,9 +201,16 @@ class Hyperspecter():
             dict_opt = []
         return dict_opt
 
-    def volumetric_graph(self, id, intensity, corrected):
+    def volumetric_graph(self, id, intensity, corrected, minlbd, maxlbd):
+        max_lambda = maxlbd
+
+        if maxlbd > (minlbd + 100):
+            max_lambda = minlbd + 100
+        elif maxlbd < minlbd:
+            max_lambda = minlbd + 10
+        
         #Dataframe
-        df = dh.filterAcquisition(id, intensity=intensity, corrected=corrected)
+        df = dh.filterAcquisition(id, intensity=intensity, corrected=corrected, frequencies=[minlbd, max_lambda])
 
         radius = df['x'].max()
         dims = radius * 2 + 1
@@ -354,12 +368,14 @@ class Hyperspecter():
             Output('volumetric-alert', 'className')],
             [Input('series-selector', 'value'),
             Input('series-intensity', 'value'),
-            Input('series-corrected', 'value')])
-        def update_volumetric_graph(id, intensity, corrected):
+            Input('series-corrected', 'value'),
+            Input('volumetric-minlambda', 'value'),
+            Input('volumetric-maxlambda', 'value')])
+        def update_volumetric_graph(id, intensity, corrected, minlbd, maxlbd):
             if id == '':
                 return fig, 'd-none'
             try:
-                volumetric_fig = self.volumetric_graph(id, intensity, corrected)
+                volumetric_fig = self.volumetric_graph(id, intensity, corrected, minlbd, maxlbd)
             except Exception as ex:
                 traceback.print_exception(sys.exc_info())
                 return fig, 'd-block'

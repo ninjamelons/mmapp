@@ -73,7 +73,7 @@ def filterCoordinates(df, coordinates):
 
 def filterFrequencies(df_melted, frequencies):
     frequencyMask = ((df_melted['frequency'] >= frequencies[0]) & (df_melted['frequency'] <= frequencies[1]))
-    return df_melted['frequency'].mask(frequencyMask)
+    return df_melted.loc[frequencyMask]
 
 def filterIntensity(df_melted, intensity):
     median = df_melted.loc[df_melted['intensity'] < intensity, 'intensity'].median()
