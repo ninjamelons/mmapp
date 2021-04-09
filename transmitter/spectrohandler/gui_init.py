@@ -53,6 +53,9 @@ def start_webview(app):
     window = webview.create_window('MM App - Hyperspecter', app.dash.server, width=1300, height=850)
     webview.start()
 
+def start_browser(app):
+    app.dash.run_server(debug=False, port=5501)
+
 def start_dash(app):
     app.dash.run_server(debug=True, port=5501)
 
@@ -86,7 +89,7 @@ if __name__ == "__main__":
     app = init_gui()
 
     #Start GUI/App
-    debug = True
+    debug = False
     if debug:
         start_dash(app)
     else:

@@ -30,16 +30,19 @@ import time
 from threading import Thread
 
 from transmitter.transmitter_service import init_rest_service
-from transmitter.spectrohandler.gui_init import init_gui, start_webview, start_dash
+from transmitter.spectrohandler.gui_init import init_gui, start_browser, start_webview, start_dash
 
 def run_service():
     init_rest_service()
-    
+
+def run_gui_browser():
+    app = init_gui()
+    start_browser(app)
 
 def run_gui():
     app = init_gui()
 
-    debug = True
+    debug = False
     if debug:
         start_dash(app)
     else:
@@ -51,6 +54,9 @@ if __name__ == "__main__":
         service_thread.start()
 
         time.sleep(2)
+
+        service_thread = Thread(target=run_gui_browser)
+        service_thread.start()
 
         run_gui()
     except Exception as ex:
