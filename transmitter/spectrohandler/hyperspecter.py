@@ -42,7 +42,7 @@ class Hyperspecter():
     def reload(self):
         self.data = pd.DataFrame.from_dict(dh.getAllSeries()['series'])
         try:
-            self.table_headers = self.data.iloc[:,np.r_[1:4, 8:9, 6:7]].rename(
+            self.table_headers = self.data.iloc[:,np.r_[0:4, 8:9, 6:7]].rename(
                 columns={'StartDatetime': 'Date'}).columns
         except:
             self.table_headers = self.data
@@ -177,7 +177,7 @@ class Hyperspecter():
     
     def getSeriesTable(self, df):
         try:
-            df = df.iloc[:,np.r_[1:4, 8:9, 6:7]]
+            df = df.iloc[:,np.r_[0:4, 8:9, 6:7]]
         except Exception as ex:
             traceback.print_exception(sys.exc_info())
     
