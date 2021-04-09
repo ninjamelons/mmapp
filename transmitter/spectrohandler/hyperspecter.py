@@ -212,8 +212,29 @@ class Hyperspecter():
         #Dataframe
         df = dh.filterAcquisition(id, intensity=intensity, corrected=corrected, frequencies=[minlbd, max_lambda])
 
+        #Expected shape
         radius = df['x'].max()
         dims = radius * 2 + 1
+        #Check if terminated early (less than expected shape)
+        # no. of rows is not divisible by dims
+        isComplete = False
+        if len(df) % dims == 0:
+            isComplete = True
+
+        #Get termination point from radius
+        # Then set new radius and dims
+        if not isComplete:
+            xMax = radius
+            xMin = abs(df['x'].min())
+            yMax = df['y'].max()
+            yMin = abs(df['y'].min())
+            radius = min([xMax, xMin, yMax, yMin])
+        
+            df = df.loc[((df['x'] <= radius) & (df['y'] <= radius) &
+                (df['x'] >= (-1*radius)) & (df['y'] >= (-1*radius)))]
+            
+            dims = radius * 2 + 1
+
         xy_shape = (dims, dims)
         nb_frames = df.iloc[:,2:].shape[1]
         max_intensity = df.iloc[:,2:].max(axis=1).max()
