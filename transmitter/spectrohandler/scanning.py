@@ -172,7 +172,7 @@ class Scanning():
                 retOutput.append(self.getTitleAttributes())
 
                 #Update progress bar
-                currPoints = len(self.seriesEntries)
+                currPoints = len(df)
                 maxPoints = self.latestSeries['NoPoints']
                 retOutput.append('No. Scans: '+str(currPoints)+'/'+str(maxPoints))
                 retOutput.append(currPoints)
