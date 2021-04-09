@@ -193,7 +193,7 @@ async def moveStageSequence(seriesId: int):
         dxdy = [0,0]
 
         #Move stage next position
-        epsilon = 0.05 # Accepted difference between expected and actual pos
+        epsilon = 0.1*interval # Accepted difference between expected and actual pos
         maxTries = 5 # Max no. attempts to move stage per epsilon
         nTries = 0 # No. attempts to move stage per epsilon
         xMvDiff = 0 # Failed x movement difference (%, 0-1)
@@ -239,7 +239,7 @@ async def moveStageSequence(seriesId: int):
             
             # Check no. tries exceeds max tries
             if nTries >= maxTries:
-                epsilon += 0.01
+                epsilon += (0.1*interval)
                 nTries = 0
         try:
             xyPos = stage.getCurrentPosition()
