@@ -1,3 +1,7 @@
+# MMApp
+
+Project files can be found on [Github](https://github.com/ninjamelons/mmapp)
+
 # Requirements
 Tested with python 3.8.x. Newer versions (e.g. 3.9) may not work properly with all required packages
 
