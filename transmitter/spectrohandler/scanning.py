@@ -33,6 +33,8 @@ class Scanning():
         self.reload()
 
         # Number of seconds between refresh/update
+        # updateInterval needs to be large enough to allow calculations
+        #  and presentation before next update is issued - 5 is safe
         self.updateInterval = 5
 
         self.dash = dash_gui
@@ -160,6 +162,8 @@ class Scanning():
                     df['ExpY'] = df['StageY'] * self.latestSeries['Interval'] + self.latestSeries['OriginY']
                     df['DiffX'] = df['PosX'] - df['ExpX']
                     df['DiffY'] = df['PosY'] - df['ExpY']
+                    #Drop duplicate rows
+                    df.drop_duplicates(subset=['StageX', 'StageY'], inplace=True)
                 except:
                     pass
                 retOutput.append(self.build_table(df))

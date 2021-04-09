@@ -89,7 +89,7 @@ if __name__ == "__main__":
     app = init_gui()
 
     #Start GUI/App
-    debug = False
+    debug = True
     if debug:
         start_dash(app)
     else:
