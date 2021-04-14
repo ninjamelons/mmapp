@@ -53,7 +53,7 @@ app = FastAPI(
     title="Transmitter Service",
     description="""Receives requests from LabSpec to acquire spectroscopy data
          and move the microscope stage through micromanager""",
-    version="1.2.5",
+    version="1.5.1",
     openapi_tags=api_tags
 )
 
@@ -179,8 +179,8 @@ async def moveStageSequence(seriesId: int):
         interval = previousEntry['Interval']
         originX = previousEntry['OriginX']
         originY = previousEntry['OriginY']
-        curr_xPos = previousEntry['StageX']
-        curr_yPos = previousEntry['StageY']
+        curr_xPos = previousEntry['StageX'] #Index Position
+        curr_yPos = previousEntry['StageY'] #Index Position
         noPoints = (int(radius)*2 + 1)**2
 
         #Calc next position
@@ -190,64 +190,50 @@ async def moveStageSequence(seriesId: int):
 
         #Get the next position's absolute micrometer value
         expPosAbs = [nextPos[0] * interval + originX, nextPos[1] * interval + originY]
-        dxdy = [0,0]
 
-        #Move stage next position
-        epsilon = 0.1*interval # Accepted difference between expected and actual pos
-        maxTries = 5 # Max no. attempts to move stage per epsilon
-        nTries = 0 # No. attempts moved this epsilon
-        xMvDiff = 0 # Failed x movement difference (%, 0-1)
-        yMvDiff = 0 # Failed x movement difference (%, 0-1)
+        print('Expected Position: [{},{}]'.format(expPosAbs[0], expPosAbs[1]))
+
+        #Get stage device
         try:
             stage = stage_lib.StageLib(stageDevice)
             xyPos = stage.getCurrentPosition()
         except:
             raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
 
-        #While stage is not in next position, Move Stage
+        print('Current Position: [{},{}]'.format(xyPos.x, xyPos.y))
+
+        # Move stage
+        try:
+            stage.moveStageAbsolute(expPosAbs)
+            stage.waitForDevice(stageDevice)
+            xyPos = stage.getCurrentPosition()
+
+            print('Moved Position: [{},{}]'.format(xyPos.x, xyPos.y))
+        except:
+            raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
+
+        # Move stage relative
+        dx = expPosAbs[0] - xyPos.x
+        dy = expPosAbs[1] - xyPos.y
+        counter = 0
+        epsilon = 0.5
         isExpected = False
         while not isExpected:
-            # Move stage
             try:
-                dxdy = position_lib.GetDxDy(curr_xPos, curr_yPos, nextPos[0], nextPos[1])
-                stage.moveStageRelative(dxdy, interval, xMvDiff, yMvDiff)
+                stage.moveStageRelative([dx, dy])
                 stage.waitForDevice(stageDevice)
                 xyPos = stage.getCurrentPosition()
             except:
-                raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
-            #X/Y Diff w/ & w/o sign
-            xDiff = xyPos.x - expPosAbs[0]
-            xSign = copysign(1, xDiff)
-            xDiff = abs(xDiff)
-            
-            yDiff = xyPos.y - expPosAbs[1]
-            ySign = copysign(1, yDiff)
-            yDiff = abs(yDiff)
-            # Check is stage moved properly
-            if (xDiff <= epsilon and
-                yDiff <= epsilon):
+                print("Failed to move stage relative")
+            xDiff = expPosAbs[0] - xyPos.x
+            yDiff = expPosAbs[1] - xyPos.y
+
+            if abs(xDiff) <= epsilon and abs(yDiff) <= epsilon:
                 isExpected = True
             else:
-                # Else increment no. tries
-                nTries += 1
-                # Get xyMvDiff
-                xMvDiff += (1 - xDiff / interval) * xSign
-                yMvDiff += (1 - yDiff / interval) * ySign
-                # Set new current positions
-                curr_yPos = xyPos.y
-                curr_xPos = xyPos.x
-            
-            # Check no. tries exceeds max tries
-            if nTries >= maxTries:
-                epsilon += (0.2*interval)
-                #Reset nTries and diff error rate
-                nTries = 0
-                xMvDiff = 0
-                yMvDiff = 0
-        try:
-            xyPos = stage.getCurrentPosition()
-        except:
-            raise HTTPException(status_code=503, detail='Micromanager is not on or ZMQ server is unavailable')
+                counter += 1
+            if counter >= 10:
+                isExpected = True
 
         #Insert new SeriesEntry
         insertOrigin = 'INSERT INTO SeriesEntry (SeriesId, StageX, StageY, PosX, PosY, PointNo) VALUES (?,?,?,?,?,?)'
@@ -510,6 +496,16 @@ async def getSeriesRange(sdate: date = date(2021, 1, 1),
     for entry in seriesTbl:
         returnSeries['series'].append(entry)
     return returnSeries
+
+@app.get("/stage/move-relative", status_code=200, tags=["stage"])
+async def moveStageRelative(x: int, y: int, interval: float):
+    stage = stage_lib.StageLib(stageDevice)
+    stage.moveStageRelative([x,y])
+
+@app.get("/stage/move-absolute", status_code=200, tags=["stage"])
+async def moveStageAbsolute(x: int, y: int):
+    stage = stage_lib.StageLib(stageDevice)
+    stage.moveStageAbsolute([x,y])
 
 @app.get("/")
 async def main():
